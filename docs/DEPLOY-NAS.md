@@ -120,6 +120,7 @@ docker compose up -d
 
 | Symptôme | Action |
 |----------|--------|
+| `access to env vars denied` | Ajouter `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` au conteneur n8n puis recréer |
 | `401 X-API-Key invalide` | Aligner `RUNNER_API_KEY` dans `.env` et header n8n |
 | Agent cloud échoue | Vérifier `CURSOR_API_KEY` et connexion GitHub Cursor |
 | `git pull` échoue | Deploy key ou repo public |

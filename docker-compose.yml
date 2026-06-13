@@ -38,6 +38,7 @@ services:
       N8N_PORT: 5678
       N8N_PROTOCOL: http
       N8N_SECURE_COOKIE: "false"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       GENERIC_TIMEZONE: Europe/Paris
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
       RUNNER_API_KEY: ${RUNNER_API_KEY}
