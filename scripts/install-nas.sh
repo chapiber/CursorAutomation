@@ -39,6 +39,16 @@ fi
 
 mkdir -p workspaces logs n8n_data secrets
 chmod 700 secrets 2>/dev/null || true
+# n8n : propriétaire = utilisateur Synology (évite EACCES sur volume bind)
+N8N_UID=$(id -u 2>/dev/null || echo 1000)
+N8N_GID=$(id -g 2>/dev/null || echo 1000)
+if grep -q '^N8N_UID=' .env 2>/dev/null; then
+  sed -i "s/^N8N_UID=.*/N8N_UID=$N8N_UID/" .env
+  sed -i "s/^N8N_GID=.*/N8N_GID=$N8N_GID/" .env
+else
+  echo "N8N_UID=$N8N_UID" >> .env
+  echo "N8N_GID=$N8N_GID" >> .env
+fi
 
 if [[ ! -d "workspaces/MyDiveClub/.git" ]]; then
   echo "[3/5] Clone initial MyDiveClub (pour git pull / deploy)"

@@ -31,6 +31,7 @@ services:
     image: n8nio/n8n:latest
     container_name: cursor-n8n
     restart: unless-stopped
+    user: "${N8N_UID:-1000}:${N8N_GID:-1000}"
     env_file: .env
     environment:
       TZ: ${TZ:-Europe/Paris}

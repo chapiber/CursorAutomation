@@ -22,10 +22,22 @@
 ### 1. Cloner le projet
 
 ```bash
-ssh admin@NasChapron
+ssh chapron@NasChapron
 sudo mkdir -p /volume1/docker/cursor-automation
 cd /volume1/docker/cursor-automation
+```
+
+**Si `git` est installé (paquet Synology Git Server) :**
+
+```bash
 git clone https://github.com/chapiber/CursorAutomation.git .
+```
+
+**Sinon (sans git sur le NAS) :**
+
+```bash
+curl -sL https://github.com/chapiber/CursorAutomation/archive/refs/heads/master.tar.gz -o /tmp/cursor-automation.tar.gz
+tar -xzf /tmp/cursor-automation.tar.gz --strip-components=1
 ```
 
 Ou utiliser le script :
@@ -33,6 +45,8 @@ Ou utiliser le script :
 ```bash
 bash scripts/install-nas.sh
 ```
+
+**Docker sur Synology :** les commandes passent souvent par `sudo /usr/local/bin/docker compose`.
 
 ### 2. Configurer les secrets
 
