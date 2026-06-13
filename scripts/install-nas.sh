@@ -38,6 +38,7 @@ else
 fi
 
 mkdir -p workspaces logs n8n_data secrets
+chmod 777 n8n_data 2>/dev/null || true
 chmod 700 secrets 2>/dev/null || true
 # n8n : propriétaire = utilisateur Synology (évite EACCES sur volume bind)
 N8N_UID=$(id -u 2>/dev/null || echo 1000)

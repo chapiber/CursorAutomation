@@ -42,7 +42,7 @@ services:
       RUNNER_API_KEY: ${RUNNER_API_KEY}
       N8N_USER_FOLDER: /data
     volumes:
-      - n8n_data:/data
+      - ./n8n_data:/data
     ports:
       - "${N8N_HOST_PORT:-5678}:5678"
     networks:
@@ -54,6 +54,3 @@ services:
 networks:
   cursor-auto-net:
     driver: bridge
-
-volumes:
-  n8n_data:
