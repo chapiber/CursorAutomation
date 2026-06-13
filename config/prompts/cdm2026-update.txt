@@ -1,0 +1,20 @@
+Exécute la skill @cdm2026-update selon le fichier .cursor/skills/cdm2026-update/SKILL.md du dépôt.
+
+Objectif : actualiser scores, statuts (scheduled/live/finished), grilles TV France et classements des poules dans site/apps/cdm2026/data/cdm2026.json.
+
+Règles strictes :
+- Ne jamais inventer un score ; en cas de contradiction entre sources, conserver l'ancienne valeur et le signaler.
+- Recalculer les standings des groupes A–L à partir des matchs terminés.
+- Mettre à jour meta.updatedAt et meta.sources.
+
+Livraison Git uniquement (pas de deploy NAS) :
+1. Écrire cdm2026.json
+2. git commit avec le message exact : chore: MAJ données CDM 2026
+3. git push origin main
+4. NE PAS exécuter deployer.bat (le runner NAS déploie ensuite).
+
+Clôturer avec un résumé structuré :
+- Nombre de matchs mis à jour (scores / TV)
+- Sources consultées
+- Conflits non résolus éventuels
+- Hash du commit (ou « aucun changement » si rien à committer)

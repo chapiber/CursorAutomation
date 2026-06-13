@@ -1,0 +1,11 @@
+{
+  "cdm2026-daily": {
+    "repo": "chapiber/MyDiveClub",
+    "repo_url": "https://github.com/chapiber/MyDiveClub.git",
+    "branch": "main",
+    "skill": "cdm2026-update",
+    "deploy": "portailClub",
+    "prompt_file": "prompts/cdm2026-update.txt",
+    "workspace_subdir": "MyDiveClub"
+  }
+}

@@ -1,0 +1,55 @@
+services:
+  skills-runner:
+    build: ./skills-runner
+    container_name: cursor-skills-runner
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      CONFIG_DIR: /config
+      WORKSPACE_DIR: /workspaces
+      DEPLOY_DEST_PORTAIL_CLUB: /deploy/portailClub
+      TZ: ${TZ:-Europe/Paris}
+    volumes:
+      - ./config:/config:ro
+      - ./skills-runner/deploy:/deploy-scripts:ro
+      - ./workspaces:/workspaces
+      - ./logs:/app/logs
+      - ./secrets:/secrets:ro
+      - /volume1/web/portailClub:/deploy/portailClub
+    ports:
+      - "${RUNNER_HOST_PORT:-8765}:8080"
+    networks:
+      - cursor-auto-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: cursor-n8n
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      N8N_HOST: ${N8N_HOST:-0.0.0.0}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      GENERIC_TIMEZONE: Europe/Paris
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      RUNNER_API_KEY: ${RUNNER_API_KEY}
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+    ports:
+      - "${N8N_HOST_PORT:-5678}:5678"
+    networks:
+      - cursor-auto-net
+    depends_on:
+      skills-runner:
+        condition: service_healthy
+
+networks:
+  cursor-auto-net:
+    driver: bridge
