@@ -5,10 +5,10 @@ Objectif : actualiser scores, statuts (scheduled/live/finished), grilles TV Fran
 Règles strictes :
 - Ne jamais inventer un score ; en cas de contradiction entre sources, conserver l'ancienne valeur et le signaler.
 - Recalculer les standings des groupes A–L à partir des matchs terminés.
-- Mettre à jour meta.updatedAt et meta.sources.
+- Mettre à jour meta.updatedAt, meta.sources et meta.updatedBy.
 
 Livraison Git uniquement (pas de deploy NAS) :
-1. Écrire cdm2026.json
+1. Écrire cdm2026.json avec **meta.updatedBy: "cloud"** (automatisation NAS)
 2. git commit avec le message exact : chore: MAJ données CDM 2026
 3. git push origin main
 4. NE PAS exécuter deployer.bat (le runner NAS déploie ensuite).
