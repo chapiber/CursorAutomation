@@ -124,6 +124,7 @@ docker compose up -d
 | Agent cloud échoue | Vérifier `CURSOR_API_KEY` et connexion GitHub Cursor |
 | `git pull` échoue | Deploy key ou repo public |
 | Deploy échoue | Vérifier permissions `/volume1/web/portailClub` |
+| n8n EACCES sur volume | Utiliser bind mount `./n8n_data:/data` + `chmod 777 n8n_data` + `N8N_USER_FOLDER=/data` |
 | Timeout n8n | Le run agent peut durer 10–20 min ; timeout HTTP = 1200s |
 
 Logs :

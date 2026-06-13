@@ -80,9 +80,9 @@ Si l'agent ne modifie rien : pas de nouveau commit, mais `git pull` + deploy doi
 | Stack | `cursor-skills-runner` healthy, ports 8765 + 5678 |
 | Health | `GET /health` → `{"status":"ok"}` |
 | Run agent | **Bloqué** — `CURSOR_API_KEY` placeholder (`Invalid User API Key`) |
-| Action requise | Renseigner `CURSOR_API_KEY` réelle dans `.env` puis `docker compose restart skills-runner` |
-| n8n | Importer workflow `n8n/workflows/cdm2026-daily.json` après 1ère connexion UI |
-| RUNNER_API_KEY | Généré sur NAS (voir `.env` sur le NAS, non reproduit ici) |
+| Action requise | Renseigner `CURSOR_API_KEY` réelle dans `.env` puis `sudo /usr/local/bin/docker compose restart skills-runner` |
+| n8n UI | http://192.168.1.28:5678 — **HTTP 200 OK** après bind mount `./n8n_data:/data` |
+| Workflow | Importer `n8n/workflows/cdm2026-daily.json` puis activer |
 
 ## Commandes utiles
 
