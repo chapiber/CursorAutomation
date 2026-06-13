@@ -8,6 +8,7 @@ services:
       CONFIG_DIR: /config
       WORKSPACE_DIR: /workspaces
       DEPLOY_DEST_PORTAIL_CLUB: /deploy/portailClub
+      LOG_DIR: /app/logs
       TZ: ${TZ:-Europe/Paris}
     volumes:
       - ./config:/config:ro

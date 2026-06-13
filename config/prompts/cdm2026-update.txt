@@ -6,6 +6,7 @@ Règles strictes :
 - Ne jamais inventer un score ; en cas de contradiction entre sources, conserver l'ancienne valeur et le signaler.
 - Recalculer les standings des groupes A–L à partir des matchs terminés.
 - Mettre à jour meta.updatedAt, meta.sources et meta.updatedBy.
+- Émettre une ligne [CDM_PROGRESS] <étape> avant chaque étape majeure (lecture JSON, scan source, MAJ scores, standings, écriture, commit).
 
 Livraison Git uniquement (pas de deploy NAS) :
 1. Écrire cdm2026.json avec **meta.updatedBy: "cloud"** (automatisation NAS)

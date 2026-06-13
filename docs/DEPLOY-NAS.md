@@ -126,7 +126,10 @@ docker compose up -d
 | `git pull` échoue | Deploy key ou repo public |
 | Deploy échoue | Vérifier permissions `/volume1/web/portailClub` |
 | n8n EACCES sur volume | Utiliser bind mount `./n8n_data:/data` + `chmod 777 n8n_data` + `N8N_USER_FOLDER=/data` |
-| Timeout n8n | Le run agent peut durer 10–20 min ; timeout HTTP = 1200s |
+| `500 Internal Server Error` | Souvent `git clone` échoué (dossier `/workspaces/MyDiveClub` sans `.git`) — corrigé par réinit workspace ; vérifier `docker logs cursor-skills-runner` |
+| `git clone` exit 128 | Dossier cible déjà présent — le runner supprime et reclone automatiquement (v0.2+) |
+| Suivi run en cours | `GET /api/v1/runs/{run_id}` ou `logs/runs/{run_id}.json` sur NAS |
+| Timeout n8n | Boucle polling 30s × ~40 = 20 min max ; agent cloud 5–20 min |
 
 Logs :
 

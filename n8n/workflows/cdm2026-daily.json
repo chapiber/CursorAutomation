@@ -24,7 +24,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://skills-runner:8080/api/v1/run",
+        "url": "http://skills-runner:8080/api/v1/runs",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -41,16 +41,98 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\"job_id\": \"cdm2026-daily\"}",
-        "options": {
-          "timeout": 1200000
-        }
+        "options": {}
       },
-      "id": "http-run",
-      "name": "Appeler skills-runner",
+      "id": "http-start",
+      "name": "Démarrer run",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [480, 300],
       "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "id": "wait-30s",
+      "name": "Attendre 30s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [720, 300],
+      "webhookId": "cdm2026-wait-poll"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://skills-runner:8080/api/v1/runs/{{ $('Démarrer run').item.json.run_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.RUNNER_API_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-poll",
+      "name": "Lire statut",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "run-id",
+              "name": "run_id",
+              "value": "={{ $json.run_id }}",
+              "type": "string"
+            },
+            {
+              "id": "phase",
+              "name": "phase",
+              "value": "={{ $json.phase }}",
+              "type": "string"
+            },
+            {
+              "id": "message",
+              "name": "message",
+              "value": "={{ $json.message }}",
+              "type": "string"
+            },
+            {
+              "id": "status",
+              "name": "status",
+              "value": "={{ $json.status }}",
+              "type": "string"
+            },
+            {
+              "id": "elapsed",
+              "name": "elapsed_sec",
+              "value": "={{ $json.elapsed_sec }}",
+              "type": "number"
+            },
+            {
+              "id": "log-tail",
+              "name": "log_tail",
+              "value": "={{ ($json.log_tail || []).join(' | ') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-journal",
+      "name": "Journaliser phase",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1200, 300]
     },
     {
       "parameters": {
@@ -62,9 +144,9 @@
           },
           "conditions": [
             {
-              "id": "status-ok",
+              "id": "status-done",
               "leftValue": "={{ $json.status }}",
-              "rightValue": "ok",
+              "rightValue": "done",
               "operator": {
                 "type": "string",
                 "operation": "equals"
@@ -75,11 +157,40 @@
         },
         "options": {}
       },
-      "id": "if-ok",
-      "name": "Succès ?",
+      "id": "if-done",
+      "name": "Terminé ?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [720, 300]
+      "position": [1440, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "status-error",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "error",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-error",
+      "name": "Erreur ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1680, 420]
     },
     {
       "parameters": {
@@ -88,19 +199,31 @@
             {
               "id": "commit",
               "name": "commit",
-              "value": "={{ $json.commit }}",
+              "value": "={{ $('Lire statut').item.json.result.commit }}",
               "type": "string"
             },
             {
               "id": "duration",
               "name": "durationSec",
-              "value": "={{ $json.duration_sec }}",
+              "value": "={{ $('Lire statut').item.json.result.duration_sec }}",
               "type": "number"
             },
             {
               "id": "job",
               "name": "job_id",
-              "value": "={{ $json.job_id }}",
+              "value": "={{ $('Lire statut').item.json.job_id }}",
+              "type": "string"
+            },
+            {
+              "id": "phase-final",
+              "name": "phase",
+              "value": "={{ $('Journaliser phase').item.json.phase }}",
+              "type": "string"
+            },
+            {
+              "id": "msg-final",
+              "name": "message",
+              "value": "={{ $('Journaliser phase').item.json.message }}",
               "type": "string"
             }
           ]
@@ -111,7 +234,7 @@
       "name": "Résultat OK",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [960, 200]
+      "position": [1680, 180]
     },
     {
       "parameters": {
@@ -120,8 +243,20 @@
             {
               "id": "err",
               "name": "error",
-              "value": "={{ $json }}",
+              "value": "={{ $('Lire statut').item.json }}",
               "type": "object"
+            },
+            {
+              "id": "phase-err",
+              "name": "phase",
+              "value": "={{ $('Journaliser phase').item.json.phase }}",
+              "type": "string"
+            },
+            {
+              "id": "msg-err",
+              "name": "message",
+              "value": "={{ $('Journaliser phase').item.json.message }}",
+              "type": "string"
             }
           ]
         },
@@ -131,7 +266,27 @@
       "name": "Résultat erreur",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [960, 420]
+      "position": [1920, 420]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "start-err",
+              "name": "error",
+              "value": "={{ $json }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-start-err",
+      "name": "Erreur démarrage",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [720, 520]
     }
   ],
   "connections": {
@@ -139,18 +294,47 @@
       "main": [
         [
           {
-            "node": "Appeler skills-runner",
+            "node": "Démarrer run",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Appeler skills-runner": {
+    "Démarrer run": {
       "main": [
         [
           {
-            "node": "Succès ?",
+            "node": "Attendre 30s",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Erreur démarrage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attendre 30s": {
+      "main": [
+        [
+          {
+            "node": "Lire statut",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire statut": {
+      "main": [
+        [
+          {
+            "node": "Journaliser phase",
             "type": "main",
             "index": 0
           }
@@ -164,7 +348,18 @@
         ]
       ]
     },
-    "Succès ?": {
+    "Journaliser phase": {
+      "main": [
+        [
+          {
+            "node": "Terminé ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Terminé ?": {
       "main": [
         [
           {
@@ -175,7 +370,25 @@
         ],
         [
           {
+            "node": "Erreur ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Erreur ?": {
+      "main": [
+        [
+          {
             "node": "Résultat erreur",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Attendre 30s",
             "type": "main",
             "index": 0
           }

@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 import subprocess
 import time
+import traceback
 from pathlib import Path
 from typing import Any
 
 from cursor_sdk import Agent, AgentOptions, CloudAgentOptions, CloudRepository, CursorAgentError
 
+from .agent_stream import is_agent_success, run_cloud_agent_streaming
 from .jobs import JobConfig, load_prompt
+from .run_store import update_run
 
 logger = logging.getLogger("skills-runner")
 
@@ -24,9 +28,14 @@ def workspace_path(job: JobConfig) -> Path:
 
 
 def run_cloud_agent(job: JobConfig) -> dict[str, Any]:
+    """Mode sync legacy (Agent.prompt)."""
     api_key = os.environ.get("CURSOR_API_KEY", "").strip()
     if not api_key:
-        raise RuntimeError("CURSOR_API_KEY manquant")
+        return {
+            "agent_status": "startup_error",
+            "agent_error": "CURSOR_API_KEY manquant",
+            "duration_sec": 0,
+        }
 
     prompt = load_prompt(job)
     repo_url = f"https://github.com/{job.repo}"
@@ -58,6 +67,13 @@ def run_cloud_agent(job: JobConfig) -> dict[str, Any]:
             "agent_error": err.message,
             "duration_sec": round(time.time() - started, 1),
         }
+    except Exception as err:
+        logger.exception("Exception agent cloud job=%s", job.job_id)
+        return {
+            "agent_status": "startup_error",
+            "agent_error": str(err),
+            "duration_sec": round(time.time() - started, 1),
+        }
 
     duration = round(time.time() - started, 1)
 
@@ -86,24 +102,38 @@ def run_cloud_agent(job: JobConfig) -> dict[str, Any]:
     }
 
 
-def ensure_workspace_clone(job: JobConfig) -> Path:
+def ensure_workspace_clone(job: JobConfig) -> tuple[Path, dict[str, Any] | None]:
+    """Clone ou réutilise le workspace. Retourne (path, erreur éventuelle)."""
     ws = workspace_path(job)
     ws.parent.mkdir(parents=True, exist_ok=True)
 
-    if not (ws / ".git").is_dir():
-        logger.info("Clone initial %s -> %s", job.repo_url, ws)
-        subprocess.run(
-            ["git", "clone", "--branch", job.branch, job.repo_url, str(ws)],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=300,
-        )
-    return ws
+    if (ws / ".git").is_dir():
+        return ws, None
+
+    if ws.exists():
+        logger.warning("Workspace %s existe sans .git — réinitialisation", ws)
+        shutil.rmtree(ws)
+
+    logger.info("Clone initial %s -> %s", job.repo_url, ws)
+    proc = subprocess.run(
+        ["git", "clone", "--branch", job.branch, job.repo_url, str(ws)],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if proc.returncode != 0:
+        err = (proc.stderr or proc.stdout or "git clone échoué")[:500]
+        logger.error("git clone échoué : %s", err)
+        return ws, {"clone_ok": False, "clone_stderr": err}
+
+    return ws, None
 
 
 def git_pull(job: JobConfig) -> dict[str, Any]:
-    ws = ensure_workspace_clone(job)
+    ws, clone_err = ensure_workspace_clone(job)
+    if clone_err:
+        return {"pull_ok": False, "pull_stderr": clone_err.get("clone_stderr", ""), "commit": None}
+
     env = os.environ.copy()
     env["GIT_SSH_COMMAND"] = "ssh -o StrictHostKeyChecking=accept-new -i /secrets/id_ed25519"
 
@@ -116,7 +146,6 @@ def git_pull(job: JobConfig) -> dict[str, Any]:
         env=env,
     )
     if proc.returncode != 0:
-        # Retry sans clé SSH (repo public en HTTPS)
         proc = subprocess.run(
             ["git", "pull", "--ff-only", "origin", job.branch],
             cwd=ws,
@@ -130,13 +159,12 @@ def git_pull(job: JobConfig) -> dict[str, Any]:
         cwd=ws,
         capture_output=True,
         text=True,
-        check=True,
     )
-    commit = head_proc.stdout.strip()
+    commit = head_proc.stdout.strip() if head_proc.returncode == 0 else None
 
     return {
         "pull_ok": proc.returncode == 0,
-        "pull_stderr": proc.stderr[:500] if proc.returncode != 0 else "",
+        "pull_stderr": (proc.stderr or "")[:500] if proc.returncode != 0 else "",
         "commit": commit,
     }
 
@@ -147,7 +175,7 @@ def run_deploy(job: JobConfig) -> dict[str, Any]:
 
     script = Path(f"/deploy-scripts/{job.deploy}.sh")
     if not script.is_file():
-        raise FileNotFoundError(f"Script deploy introuvable : {script}")
+        return {"deploy": "error", "exit_code": -1, "stderr_tail": f"Script introuvable : {script}"}
 
     ws = workspace_path(job)
     env = os.environ.copy()
@@ -170,34 +198,117 @@ def run_deploy(job: JobConfig) -> dict[str, Any]:
     }
 
 
+def _finalize_error(out: dict[str, Any], phase: str, message: str, started: float) -> dict[str, Any]:
+    out["status"] = "error"
+    out["phase"] = phase
+    out["error"] = message
+    out["duration_sec"] = round(time.time() - started, 1)
+    return out
+
+
 def execute_job(job: JobConfig) -> dict[str, Any]:
+    """Exécution synchrone (legacy)."""
     started = time.time()
     out: dict[str, Any] = {"job_id": job.job_id, "repo": job.repo, "skill": job.skill}
 
-    agent_result = run_cloud_agent(job)
-    out["agent"] = agent_result
+    try:
+        agent_result = run_cloud_agent(job)
+        out["agent"] = agent_result
 
-    if agent_result.get("agent_status") not in ("finished",):
-        out["status"] = "error"
-        out["duration_sec"] = round(time.time() - started, 1)
-        return out
+        if not is_agent_success(agent_result.get("agent_status")):
+            return _finalize_error(
+                out,
+                "agent",
+                agent_result.get("agent_error") or agent_result.get("agent_result") or "Agent échoué",
+                started,
+            )
 
-    pull_result = git_pull(job)
-    out["git_pull"] = pull_result
+        pull_result = git_pull(job)
+        out["git_pull"] = pull_result
 
-    if not pull_result.get("pull_ok"):
-        out["status"] = "error"
-        out["duration_sec"] = round(time.time() - started, 1)
-        return out
+        if not pull_result.get("pull_ok"):
+            return _finalize_error(
+                out,
+                "git_pull",
+                pull_result.get("pull_stderr") or "git pull échoué",
+                started,
+            )
 
-    deploy_result = run_deploy(job)
-    out["deploy_result"] = deploy_result
+        deploy_result = run_deploy(job)
+        out["deploy_result"] = deploy_result
 
-    if deploy_result.get("deploy") == "error":
-        out["status"] = "error"
-    else:
+        if deploy_result.get("deploy") == "error":
+            return _finalize_error(
+                out,
+                "deploy",
+                deploy_result.get("stderr_tail") or "deploy échoué",
+                started,
+            )
+
         out["status"] = "ok"
+        out["phase"] = "done"
         out["commit"] = pull_result.get("commit")
+        out["duration_sec"] = round(time.time() - started, 1)
+        return out
 
-    out["duration_sec"] = round(time.time() - started, 1)
-    return out
+    except Exception as err:
+        logger.exception("execute_job exception job=%s", job.job_id)
+        out["traceback_tail"] = traceback.format_exc()[-1500:]
+        return _finalize_error(out, "exception", str(err), started)
+
+
+def execute_job_async(run_id: str, job: JobConfig) -> None:
+    """Exécution async avec suivi run_store."""
+    started = time.time()
+    out: dict[str, Any] = {"job_id": job.job_id, "repo": job.repo, "skill": job.skill}
+
+    try:
+        agent_result = run_cloud_agent_streaming(job, run_id)
+        out["agent"] = agent_result
+
+        if not is_agent_success(agent_result.get("agent_status")):
+            msg = agent_result.get("agent_error") or agent_result.get("agent_result") or "Agent échoué"
+            result = _finalize_error(out, "agent", msg, started)
+            update_run(run_id, status="error", phase="error", message=msg, result=result)
+            return
+
+        update_run(run_id, phase="git_pull", message="git pull en cours")
+        pull_result = git_pull(job)
+        out["git_pull"] = pull_result
+        update_run(run_id, log_line=f"[git_pull] ok={pull_result.get('pull_ok')} commit={pull_result.get('commit')}")
+
+        if not pull_result.get("pull_ok"):
+            msg = pull_result.get("pull_stderr") or "git pull échoué"
+            result = _finalize_error(out, "git_pull", msg, started)
+            update_run(run_id, status="error", phase="error", message=msg, result=result)
+            return
+
+        update_run(run_id, phase="deploy", message="Déploiement portailClub")
+        deploy_result = run_deploy(job)
+        out["deploy_result"] = deploy_result
+        update_run(run_id, log_line=f"[deploy] status={deploy_result.get('deploy')}")
+
+        if deploy_result.get("deploy") == "error":
+            msg = deploy_result.get("stderr_tail") or "deploy échoué"
+            result = _finalize_error(out, "deploy", msg, started)
+            update_run(run_id, status="error", phase="error", message=msg, result=result)
+            return
+
+        out["status"] = "ok"
+        out["phase"] = "done"
+        out["commit"] = pull_result.get("commit")
+        out["duration_sec"] = round(time.time() - started, 1)
+        update_run(
+            run_id,
+            status="done",
+            phase="done",
+            message=f"Terminé — commit {out.get('commit')}",
+            result=out,
+        )
+        logger.info("Run async terminé run_id=%s status=ok", run_id)
+
+    except Exception as err:
+        logger.exception("execute_job_async exception run_id=%s", run_id)
+        result = _finalize_error(out, "exception", str(err), started)
+        result["traceback_tail"] = traceback.format_exc()[-1500:]
+        update_run(run_id, status="error", phase="error", message=str(err), result=result)

@@ -18,10 +18,34 @@ docker compose logs skills-runner --tail 30
 
 **Attendu :** `{"status":"ok","service":"skills-runner"}`
 
-## Test 2 — Run manuel (sans attendre 7h)
+## Test 2 — Run async avec suivi (recommandé)
 
 ```bash
 source .env
+# Démarrer
+curl -s -X POST http://localhost:8765/api/v1/runs \
+  -H "X-API-Key: $RUNNER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"job_id":"cdm2026-daily"}' | python3 -m json.tool
+
+# Polling (remplacer RUN_ID)
+curl -s http://localhost:8765/api/v1/runs/RUN_ID \
+  -H "X-API-Key: $RUNNER_API_KEY" | python3 -m json.tool
+
+# Dernier run du job
+curl -s "http://localhost:8765/api/v1/runs/latest?job_id=cdm2026-daily" \
+  -H "X-API-Key: $RUNNER_API_KEY" | python3 -m json.tool
+
+# Journal fichier
+ls -lt logs/runs/
+cat logs/runs/RUN_ID.json
+```
+
+**Phases attendues :** `queued` → `agent_running` → `agent_done` → `git_pull` → `deploy` → `done`
+
+## Test 2b — Run sync legacy
+
+```bash
 curl -s -X POST http://localhost:8765/api/v1/run \
   -H "X-API-Key: $RUNNER_API_KEY" \
   -H "Content-Type: application/json" \
@@ -45,7 +69,8 @@ curl -s -X POST http://localhost:8765/api/v1/run \
 1. Ouvrir `http://<IP-NAS>:5678`
 2. Workflow **CDM 2026 — MAJ quotidienne**
 3. **Execute workflow** (bouton play)
-4. Vérifier : node « Appeler skills-runner » vert → branche « Résultat OK »
+4. Pendant l'exécution : boucle **Attendre 30s → Lire statut → Journaliser phase** (visible dans Executions → Logs)
+5. Fin : branche **Résultat OK** (`status: done`) ou **Résultat erreur**
 
 ## Test 4 — Planification 7h
 
