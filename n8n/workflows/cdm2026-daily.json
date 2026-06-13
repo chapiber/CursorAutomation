@@ -1,5 +1,8 @@
 {
+  "id": "CdM2026DailyWf01",
   "name": "CDM 2026 — MAJ quotidienne",
+  "active": false,
+  "activeVersionId": null,
   "nodes": [
     {
       "parameters": {
