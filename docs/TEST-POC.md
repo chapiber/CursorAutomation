@@ -43,6 +43,13 @@ cat logs/runs/RUN_ID.json
 
 **Phases attendues :** `queued` → `agent_running` → `agent_done` → `git_pull` → `deploy` → `done`
 
+**Champ `report_text` :** présent dès le polling ; en fin de run, vérifier les métriques (durée, matchs, tokens, fichiers commités).
+
+```bash
+curl -s http://localhost:8765/api/v1/runs/RUN_ID \
+  -H "X-API-Key: $RUNNER_API_KEY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('report_text',''))"
+```
+
 ## Test 2b — Run sync legacy
 
 ```bash
@@ -70,9 +77,31 @@ curl -s -X POST http://localhost:8765/api/v1/run \
 2. Workflow **CDM 2026 — MAJ quotidienne**
 3. **Execute workflow** (bouton play)
 4. Pendant l'exécution : boucle **Attendre 30s → Lire statut → Journaliser phase** (visible dans Executions → Logs)
-5. Fin : branche **Résultat OK** (`status: done`) ou **Résultat erreur**
+5. Fin : branche **Résultat OK** (`status: done`, champs `cr` / `report_text`) ou **Résultat erreur**
 
-## Test 4 — Planification 7h
+## Test 4 — Expiration workflow (après 14/07/2026)
+
+Simuler côté API (sans attendre la date) :
+
+```bash
+# Modifier temporairement stop_after à une date passée dans config/jobs.json, rebuild :
+docker compose up -d --build skills-runner
+curl -s -X POST http://localhost:8765/api/v1/runs \
+  -H "X-API-Key: $RUNNER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"job_id":"cdm2026-daily"}' -w "\nHTTP %{http_code}\n"
+# Attendu : HTTP 410, detail.job_expired=true
+```
+
+Dans n8n : exécuter le workflow manuellement avec date > 14/07 → branche **Expiré** et CR :
+
+```text
+CDM 2026 — workflow expiré (dernière exécution : 14/07/2026)
+```
+
+Remettre `stop_after: "2026-07-14"` après le test.
+
+## Test 5 — Planification 7h
 
 - Workflow **activé** (toggle ON)
 - Timezone workflow : `Europe/Paris`
@@ -80,7 +109,7 @@ curl -s -X POST http://localhost:8765/api/v1/run \
 
 **Validation rapide :** modifier temporairement le cron à `*/5 * * * *`, attendre 5 min, vérifier l'historique **Executions** dans n8n, puis remettre `0 7 * * *`.
 
-## Test 5 — Cas d'erreur
+## Test 6 — Cas d'erreur
 
 ### Clé Cursor invalide
 

@@ -6,6 +6,7 @@
     "skill": "cdm2026-update",
     "deploy": "portailClub",
     "prompt_file": "prompts/cdm2026-update.txt",
-    "workspace_subdir": "MyDiveClub"
+    "workspace_subdir": "MyDiveClub",
+    "stop_after": "2026-07-14"
   }
 }

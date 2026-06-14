@@ -90,6 +90,36 @@ docker compose ps
 4. Vérifier que la variable d'environnement `RUNNER_API_KEY` est bien passée au conteneur n8n (déjà dans `docker-compose.yml`)
 5. **Activer** le workflow (toggle en haut à droite)
 
+**Après mise à jour du workflow** (date de fin, CR texte) : réimporter `n8n/workflows/cdm2026-daily.json` (remplace l'existant) ou recréer les nœuds manuellement.
+
+### Date de fin du job CDM
+
+- Dernière exécution planifiée : **14/07/2026 à 7h** (Europe/Paris)
+- À partir du **15/07/2026** : le nœud n8n **Encore actif ?** route vers **Expiré** (CR texte sans appel agent)
+- Garde-fou API : `stop_after: "2026-07-14"` dans `config/jobs.json` → `POST /api/v1/runs` retourne **410** si date dépassée
+
+### Compte-rendu texte (n8n)
+
+Chaque exécution expose un champ **`report_text`** (et **`cr`**) dans les nœuds **Résultat OK**, **Résultat erreur** ou **Expiré**.
+
+Consultation sans relancer :
+
+```bash
+curl -s "http://localhost:8765/api/v1/runs/latest?job_id=cdm2026-daily" \
+  -H "X-API-Key: $RUNNER_API_KEY" | python3 -c "import sys,json; print(json.load(sys.stdin)['report_text'])"
+```
+
+Format minimaliste :
+
+```text
+CDM 2026 — compte-rendu
+Durée agent : 312 s
+Matchs mis à jour : 8
+Tokens : 45200 (in 38000 / out 7200)
+Fichiers commités : 1
+Commit : abc1234
+```
+
 ### 6. Vérifier la santé
 
 ```bash
@@ -114,6 +144,7 @@ cd /volume1/docker/cursor-automation
 git pull
 docker compose build skills-runner
 docker compose up -d
+# Réimporter cdm2026-daily.json dans n8n si le workflow a changé
 ```
 
 ## Dépannage
@@ -130,6 +161,8 @@ docker compose up -d
 | `git clone` exit 128 | Dossier cible déjà présent — le runner supprime et reclone automatiquement (v0.2+) |
 | Suivi run en cours | `GET /api/v1/runs/{run_id}` ou `logs/runs/{run_id}.json` sur NAS |
 | Timeout n8n | Boucle polling 30s × ~40 = 20 min max ; agent cloud 5–20 min |
+| `410 job expiré` | Normal après le 14/07/2026 — vérifier `stop_after` dans jobs.json |
+| `report_text` vide / n/d | Agent n'a pas émis `[CDM_STATS]` ou tokens non exposés par le SDK |
 
 Logs :
 

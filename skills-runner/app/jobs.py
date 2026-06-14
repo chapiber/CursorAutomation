@@ -5,8 +5,12 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
+
+_PARIS = ZoneInfo("Europe/Paris")
 
 
 @dataclass(frozen=True)
@@ -19,6 +23,15 @@ class JobConfig:
     deploy: str | None
     prompt_file: str
     workspace_subdir: str
+    stop_after: str | None = None
+
+
+def job_is_expired(job: JobConfig, *, today: date | None = None) -> bool:
+    """True si la date du jour (Paris) dépasse stop_after (dernier jour inclus)."""
+    if not job.stop_after:
+        return False
+    current = today or datetime.now(_PARIS).date()
+    return current > date.fromisoformat(job.stop_after)
 
 
 def config_dir() -> Path:
@@ -39,6 +52,7 @@ def load_jobs() -> dict[str, JobConfig]:
             deploy=entry.get("deploy"),
             prompt_file=entry["prompt_file"],
             workspace_subdir=entry.get("workspace_subdir", entry["repo"].split("/")[-1]),
+            stop_after=entry.get("stop_after"),
         )
     return jobs
 

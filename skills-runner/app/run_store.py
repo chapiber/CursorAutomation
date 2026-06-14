@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .report import build_report_text
+
 _lock = threading.Lock()
 _MAX_LOG_LINES = 200
 _LOG_TAIL_SIZE = 20
@@ -139,7 +141,7 @@ def public_view(record: dict[str, Any]) -> dict[str, Any]:
         except ValueError:
             elapsed = 0.0
     lines: list[str] = record.get("log_lines") or []
-    return {
+    view: dict[str, Any] = {
         "run_id": record["run_id"],
         "job_id": record["job_id"],
         "status": record["status"],
@@ -152,3 +154,5 @@ def public_view(record: dict[str, Any]) -> dict[str, Any]:
         "log_tail": lines[-_LOG_TAIL_SIZE:],
         "result": record.get("result"),
     }
+    view["report_text"] = build_report_text({**record, "elapsed_sec": elapsed})
+    return view

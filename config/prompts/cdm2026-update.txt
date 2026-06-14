@@ -19,3 +19,6 @@ Clôturer avec un résumé structuré :
 - Sources consultées
 - Conflits non résolus éventuels
 - Hash du commit (ou « aucun changement » si rien à committer)
+
+Dernière ligne obligatoire (machine-readable, après le résumé) :
+[CDM_STATS] {"matches_updated": <nombre>}

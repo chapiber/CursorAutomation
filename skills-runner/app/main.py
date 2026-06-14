@@ -11,7 +11,7 @@ from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from .jobs import get_job
+from .jobs import get_job, job_is_expired
 from .run_store import create_run, get_latest_run, get_run, public_view
 from .runner import execute_job, execute_job_async
 
@@ -45,6 +45,19 @@ def _resolve_job(job_id: str):
         raise HTTPException(status_code=500, detail=str(err)) from err
 
 
+def _check_job_not_expired(job) -> None:
+    if job_is_expired(job):
+        raise HTTPException(
+            status_code=410,
+            detail={
+                "job_expired": True,
+                "job_id": job.job_id,
+                "stop_after": job.stop_after,
+                "message": f"Job expiré — dernière exécution autorisée le {job.stop_after}",
+            },
+        )
+
+
 def _start_background(run_id: str, job) -> None:
     thread = threading.Thread(
         target=execute_job_async,
@@ -68,6 +81,7 @@ def start_run(
 ) -> JSONResponse:
     verify_api_key(x_api_key)
     job = _resolve_job(body.job_id)
+    _check_job_not_expired(job)
 
     record = create_run(body.job_id)
     run_id = record["run_id"]
@@ -111,6 +125,7 @@ def run_job(
     """Exécution synchrone (legacy — préférer POST /api/v1/runs)."""
     verify_api_key(x_api_key)
     job = _resolve_job(body.job_id)
+    _check_job_not_expired(job)
 
     logger.info("Run sync demandé job_id=%s", body.job_id)
     result = execute_job(job)

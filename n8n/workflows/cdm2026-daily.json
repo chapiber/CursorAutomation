@@ -23,6 +23,67 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "date-active",
+              "leftValue": "={{ $now.setZone('Europe/Paris').toFormat('yyyy-MM-dd') }}",
+              "rightValue": "2026-07-14",
+              "operator": {
+                "type": "string",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-active",
+      "name": "Encore actif ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "expired-status",
+              "name": "status",
+              "value": "expired",
+              "type": "string"
+            },
+            {
+              "id": "expired-report",
+              "name": "report_text",
+              "value": "CDM 2026 — workflow expiré (dernière exécution : 14/07/2026)",
+              "type": "string"
+            },
+            {
+              "id": "expired-cr",
+              "name": "cr",
+              "value": "CDM 2026 — workflow expiré (dernière exécution : 14/07/2026)",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-expired",
+      "name": "Expiré",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [680, 480]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "http://skills-runner:8080/api/v1/runs",
         "sendHeaders": true,
@@ -47,7 +108,7 @@
       "name": "Démarrer run",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [480, 300],
+      "position": [680, 300],
       "onError": "continueErrorOutput"
     },
     {
@@ -59,7 +120,7 @@
       "name": "Attendre 30s",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [720, 300],
+      "position": [920, 300],
       "webhookId": "cdm2026-wait-poll"
     },
     {
@@ -81,7 +142,7 @@
       "name": "Lire statut",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [960, 300],
+      "position": [1160, 300],
       "onError": "continueErrorOutput"
     },
     {
@@ -122,6 +183,12 @@
               "id": "log-tail",
               "name": "log_tail",
               "value": "={{ ($json.log_tail || []).join(' | ') }}",
+              "type": "string"
+            },
+            {
+              "id": "report-text-journal",
+              "name": "report_text",
+              "value": "={{ $json.report_text }}",
               "type": "string"
             }
           ]
@@ -225,6 +292,18 @@
               "name": "message",
               "value": "={{ $('Journaliser phase').item.json.message }}",
               "type": "string"
+            },
+            {
+              "id": "report-text-ok",
+              "name": "report_text",
+              "value": "={{ $('Lire statut').item.json.report_text }}",
+              "type": "string"
+            },
+            {
+              "id": "cr-ok",
+              "name": "cr",
+              "value": "={{ $('Lire statut').item.json.report_text }}",
+              "type": "string"
             }
           ]
         },
@@ -257,6 +336,18 @@
               "name": "message",
               "value": "={{ $('Journaliser phase').item.json.message }}",
               "type": "string"
+            },
+            {
+              "id": "report-text-err",
+              "name": "report_text",
+              "value": "={{ $('Lire statut').item.json.report_text }}",
+              "type": "string"
+            },
+            {
+              "id": "cr-err",
+              "name": "cr",
+              "value": "={{ $('Lire statut').item.json.report_text }}",
+              "type": "string"
             }
           ]
         },
@@ -286,7 +377,7 @@
       "name": "Erreur démarrage",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [720, 520]
+      "position": [920, 520]
     }
   ],
   "connections": {
@@ -294,7 +385,25 @@
       "main": [
         [
           {
+            "node": "Encore actif ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Encore actif ?": {
+      "main": [
+        [
+          {
             "node": "Démarrer run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Expiré",
             "type": "main",
             "index": 0
           }

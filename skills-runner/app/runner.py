@@ -15,6 +15,7 @@ from cursor_sdk import Agent, AgentOptions, CloudAgentOptions, CloudRepository, 
 
 from .agent_stream import is_agent_success, run_cloud_agent_streaming
 from .jobs import JobConfig, load_prompt
+from .report import build_report_text
 from .run_store import update_run
 
 logger = logging.getLogger("skills-runner")
@@ -129,10 +130,41 @@ def ensure_workspace_clone(job: JobConfig) -> tuple[Path, dict[str, Any] | None]
     return ws, None
 
 
+def _git_rev_parse(ws: Path, ref: str = "HEAD") -> str | None:
+    proc = subprocess.run(
+        ["git", "rev-parse", ref],
+        cwd=ws,
+        capture_output=True,
+        text=True,
+    )
+    return proc.stdout.strip() if proc.returncode == 0 else None
+
+
+def count_committed_files(ws: Path, head_before: str | None, head_after: str | None) -> int:
+    if not head_before or not head_after or head_before == head_after:
+        return 0
+    proc = subprocess.run(
+        ["git", "diff", "--name-only", f"{head_before}..{head_after}"],
+        cwd=ws,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return 0
+    return len([line for line in proc.stdout.splitlines() if line.strip()])
+
+
 def git_pull(job: JobConfig) -> dict[str, Any]:
     ws, clone_err = ensure_workspace_clone(job)
     if clone_err:
-        return {"pull_ok": False, "pull_stderr": clone_err.get("clone_stderr", ""), "commit": None}
+        return {
+            "pull_ok": False,
+            "pull_stderr": clone_err.get("clone_stderr", ""),
+            "commit": None,
+            "files_committed": 0,
+        }
+
+    head_before = _git_rev_parse(ws)
 
     env = os.environ.copy()
     env["GIT_SSH_COMMAND"] = "ssh -o StrictHostKeyChecking=accept-new -i /secrets/id_ed25519"
@@ -154,6 +186,7 @@ def git_pull(job: JobConfig) -> dict[str, Any]:
             timeout=120,
         )
 
+    head_after = _git_rev_parse(ws)
     head_proc = subprocess.run(
         ["git", "rev-parse", "--short", "HEAD"],
         cwd=ws,
@@ -161,11 +194,13 @@ def git_pull(job: JobConfig) -> dict[str, Any]:
         text=True,
     )
     commit = head_proc.stdout.strip() if head_proc.returncode == 0 else None
+    files_committed = count_committed_files(ws, head_before, head_after)
 
     return {
         "pull_ok": proc.returncode == 0,
         "pull_stderr": (proc.stderr or "")[:500] if proc.returncode != 0 else "",
         "commit": commit,
+        "files_committed": files_committed,
     }
 
 
@@ -257,6 +292,19 @@ def execute_job(job: JobConfig) -> dict[str, Any]:
         return _finalize_error(out, "exception", str(err), started)
 
 
+def _attach_report(out: dict[str, Any], run_id: str, job: JobConfig, status: str, message: str) -> dict[str, Any]:
+    record = {
+        "run_id": run_id,
+        "job_id": job.job_id,
+        "status": status,
+        "phase": out.get("phase", status),
+        "message": message,
+        "result": out,
+    }
+    out["report_text"] = build_report_text(record)
+    return out
+
+
 def execute_job_async(run_id: str, job: JobConfig) -> None:
     """Exécution async avec suivi run_store."""
     started = time.time()
@@ -269,17 +317,19 @@ def execute_job_async(run_id: str, job: JobConfig) -> None:
         if not is_agent_success(agent_result.get("agent_status")):
             msg = agent_result.get("agent_error") or agent_result.get("agent_result") or "Agent échoué"
             result = _finalize_error(out, "agent", msg, started)
+            _attach_report(result, run_id, job, "error", msg)
             update_run(run_id, status="error", phase="error", message=msg, result=result)
             return
 
         update_run(run_id, phase="git_pull", message="git pull en cours")
         pull_result = git_pull(job)
         out["git_pull"] = pull_result
-        update_run(run_id, log_line=f"[git_pull] ok={pull_result.get('pull_ok')} commit={pull_result.get('commit')}")
+        update_run(run_id, log_line=f"[git_pull] ok={pull_result.get('pull_ok')} commit={pull_result.get('commit')} files={pull_result.get('files_committed', 0)}")
 
         if not pull_result.get("pull_ok"):
             msg = pull_result.get("pull_stderr") or "git pull échoué"
             result = _finalize_error(out, "git_pull", msg, started)
+            _attach_report(result, run_id, job, "error", msg)
             update_run(run_id, status="error", phase="error", message=msg, result=result)
             return
 
@@ -291,6 +341,7 @@ def execute_job_async(run_id: str, job: JobConfig) -> None:
         if deploy_result.get("deploy") == "error":
             msg = deploy_result.get("stderr_tail") or "deploy échoué"
             result = _finalize_error(out, "deploy", msg, started)
+            _attach_report(result, run_id, job, "error", msg)
             update_run(run_id, status="error", phase="error", message=msg, result=result)
             return
 
@@ -298,11 +349,13 @@ def execute_job_async(run_id: str, job: JobConfig) -> None:
         out["phase"] = "done"
         out["commit"] = pull_result.get("commit")
         out["duration_sec"] = round(time.time() - started, 1)
+        done_msg = f"Terminé — commit {out.get('commit')}"
+        _attach_report(out, run_id, job, "done", done_msg)
         update_run(
             run_id,
             status="done",
             phase="done",
-            message=f"Terminé — commit {out.get('commit')}",
+            message=done_msg,
             result=out,
         )
         logger.info("Run async terminé run_id=%s status=ok", run_id)
@@ -311,4 +364,5 @@ def execute_job_async(run_id: str, job: JobConfig) -> None:
         logger.exception("execute_job_async exception run_id=%s", run_id)
         result = _finalize_error(out, "exception", str(err), started)
         result["traceback_tail"] = traceback.format_exc()[-1500:]
+        _attach_report(result, run_id, job, "error", str(err))
         update_run(run_id, status="error", phase="error", message=str(err), result=result)
