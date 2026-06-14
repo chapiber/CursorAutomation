@@ -84,6 +84,16 @@ docker compose ps
 
 ### 5. Importer le workflow n8n
 
+**Automatique (recommandé) :**
+
+```bash
+bash scripts/import-n8n-workflow.sh
+```
+
+Le script copie `n8n/workflows/cdm2026-daily.json` dans le conteneur, l'importe via `n8n import:workflow`, réactive le workflow (`CdM2026DailyWf01`) et redémarre n8n si besoin.
+
+**Manuel (UI) :**
+
 1. Ouvrir `http://<IP-NAS>:5678`
 2. Créer un compte admin n8n (première visite)
 3. **Workflows** → **Import from File** → `n8n/workflows/cdm2026-daily.json`
@@ -144,7 +154,7 @@ cd /volume1/docker/cursor-automation
 git pull
 docker compose build skills-runner
 docker compose up -d
-# Réimporter cdm2026-daily.json dans n8n si le workflow a changé
+bash scripts/import-n8n-workflow.sh
 ```
 
 ## Dépannage
