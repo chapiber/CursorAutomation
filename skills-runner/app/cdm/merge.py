@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
-from .models import ExternalMatch, UpdateStats
+from .models import ExternalMatch, UpdatedMatchInfo, UpdateStats
 
 
 def _score_tuple(ext: ExternalMatch) -> tuple[int | None, int | None, str]:
@@ -71,9 +71,14 @@ def _apply_external(match: dict[str, Any], ext: ExternalMatch) -> bool:
     return changed
 
 
+def _team_names(data: dict[str, Any]) -> dict[str, str]:
+    return {t["code"]: t.get("name", t["code"]) for t in data.get("teams", []) if t.get("code")}
+
+
 def merge_matches(data: dict[str, Any], externals: list[ExternalMatch]) -> UpdateStats:
     """Applique les résultats externes ; ne jamais inventer de score."""
     stats = UpdateStats()
+    names = _team_names(data)
     by_pair: dict[tuple[str, str], list[ExternalMatch]] = defaultdict(list)
     for ext in externals:
         by_pair[(ext.home, ext.away)].append(ext)
@@ -103,5 +108,25 @@ def merge_matches(data: dict[str, Any], externals: list[ExternalMatch]) -> Updat
 
         if _apply_external(match, consensus):
             stats.matches_updated += 1
+            score = match.get("score") or {}
+            stats.updated_matches.append(
+                UpdatedMatchInfo(
+                    id=match.get("id", "?"),
+                    stage=match.get("stage", ""),
+                    group=match.get("group"),
+                    home=home,
+                    away=away,
+                    home_name=names.get(home, home),
+                    away_name=names.get(away, away),
+                    kickoff_paris=match.get("kickoffParis"),
+                    previous_home=existing.get("home"),
+                    previous_away=existing.get("away"),
+                    previous_status=existing.get("status", "scheduled"),
+                    new_home=score.get("home"),
+                    new_away=score.get("away"),
+                    new_status=score.get("status", "scheduled"),
+                    source=consensus.source,
+                )
+            )
 
     return stats

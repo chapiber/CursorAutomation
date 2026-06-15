@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .cdm.models import UpdatedMatchInfo
+
 
 def _format_tokens(tokens: dict[str, Any] | None) -> str:
     if not tokens:
@@ -34,6 +36,36 @@ def _extract_stats(result: dict[str, Any]) -> dict[str, Any]:
         return cdm["stats"]
     agent = result.get("agent") or {}
     return agent.get("stats") or {}
+
+
+def _format_updated_match_line(match: dict[str, Any]) -> str:
+    return UpdatedMatchInfo(
+        id=match.get("id", "?"),
+        stage=match.get("stage", ""),
+        group=match.get("group"),
+        home=match.get("home", "?"),
+        away=match.get("away", "?"),
+        home_name=match.get("home_name", match.get("home", "?")),
+        away_name=match.get("away_name", match.get("away", "?")),
+        kickoff_paris=match.get("kickoff_paris"),
+        previous_home=match.get("previous_home"),
+        previous_away=match.get("previous_away"),
+        previous_status=match.get("previous_status", "scheduled"),
+        new_home=match.get("new_home"),
+        new_away=match.get("new_away"),
+        new_status=match.get("new_status", "scheduled"),
+        source=match.get("source", ""),
+    ).report_line()
+
+
+def _append_updated_matches(lines: list[str], stats: dict[str, Any]) -> None:
+    updated = stats.get("updated_matches") or []
+    if not updated:
+        return
+    lines.append("")
+    lines.append("Matchs modifiés :")
+    for match in updated:
+        lines.append(_format_updated_match_line(match))
 
 
 def _duration_line(result: dict[str, Any]) -> str | None:
@@ -75,6 +107,7 @@ def build_report_text(record: dict[str, Any]) -> str:
         stats = _extract_stats(result)
         if stats.get("matches_updated") is not None:
             lines.append(f"Matchs mis à jour : {stats['matches_updated']}")
+        _append_updated_matches(lines, stats)
         if not _is_cdm_programmatic(result):
             tokens_line = _format_tokens(stats.get("tokens"))
             if tokens_line != "n/d":
@@ -92,6 +125,7 @@ def build_report_text(record: dict[str, Any]) -> str:
 
     matches = stats.get("matches_updated")
     lines.append(f"Matchs mis à jour : {matches if matches is not None else 'n/d'}")
+    _append_updated_matches(lines, stats)
 
     if not _is_cdm_programmatic(result):
         lines.append(f"Tokens : {_format_tokens(stats.get('tokens'))}")

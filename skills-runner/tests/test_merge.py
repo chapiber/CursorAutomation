@@ -21,6 +21,12 @@ def test_merge_updates_scheduled_match_with_consensus():
     ]
     stats = merge_matches(data, externals)
     assert stats.matches_updated == 1
+    assert len(stats.updated_matches) == 1
+    info = stats.updated_matches[0]
+    assert info.id == "M005"
+    assert info.home_name == "Haïti"
+    assert info.new_home == 0
+    assert info.new_away == 2
     match = next(m for m in data["matches"] if m["id"] == "M005")
     assert match["score"]["home"] == 0
     assert match["score"]["away"] == 2

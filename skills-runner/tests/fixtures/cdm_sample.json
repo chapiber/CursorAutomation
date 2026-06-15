@@ -3,7 +3,16 @@
     "updatedAt": "2026-06-11T00:00:00.000Z",
     "updatedBy": "local"
   },
-  "teams": [],
+  "teams": [
+    {"code": "MEX", "name": "Mexique"},
+    {"code": "KOR", "name": "Corée du Sud"},
+    {"code": "RSA", "name": "Afrique du Sud"},
+    {"code": "CZE", "name": "République tchèque"},
+    {"code": "HTI", "name": "Haïti"},
+    {"code": "SCO", "name": "Écosse"},
+    {"code": "CAN", "name": "Canada"},
+    {"code": "BIH", "name": "Bosnie-Herzégovine"}
+  ],
   "groups": [
     {
       "id": "A",

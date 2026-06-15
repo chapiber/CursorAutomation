@@ -446,6 +446,7 @@ def execute_cdm_update_async(run_id: str, job: JobConfig) -> None:
             "duration_sec": update_duration,
             "stats": {
                 "matches_updated": stats.matches_updated,
+                "updated_matches": [m.to_dict() for m in stats.updated_matches],
                 "sources": stats.sources,
                 "conflicts": len(stats.conflicts),
                 "fetch_errors": len(stats.fetch_errors),
