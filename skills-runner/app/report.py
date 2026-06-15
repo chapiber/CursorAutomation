@@ -24,6 +24,32 @@ def _job_title(job_id: str) -> str:
     return f"{job_id} — compte-rendu"
 
 
+def _is_cdm_programmatic(result: dict[str, Any]) -> bool:
+    return result.get("handler") == "cdm_update" or bool(result.get("cdm"))
+
+
+def _extract_stats(result: dict[str, Any]) -> dict[str, Any]:
+    cdm = result.get("cdm") or {}
+    if cdm.get("stats"):
+        return cdm["stats"]
+    agent = result.get("agent") or {}
+    return agent.get("stats") or {}
+
+
+def _duration_line(result: dict[str, Any]) -> str | None:
+    if _is_cdm_programmatic(result):
+        cdm = result.get("cdm") or {}
+        dur = cdm.get("duration_sec")
+        if dur is not None:
+            return f"Durée MAJ : {dur} s"
+        return None
+    agent = result.get("agent") or {}
+    dur = agent.get("duration_sec")
+    if dur is not None:
+        return f"Durée agent : {dur} s"
+    return None
+
+
 def build_report_text(record: dict[str, Any]) -> str:
     """CR texte à partir d'un record run_store."""
     status = record.get("status", "running")
@@ -42,33 +68,37 @@ def build_report_text(record: dict[str, Any]) -> str:
 
     if status == "error":
         error = result.get("error") or message or "erreur inconnue"
-        agent = result.get("agent") or {}
-        agent_dur = agent.get("duration_sec")
         lines = [title, f"Statut : erreur — {error}"]
-        if agent_dur is not None:
-            lines.append(f"Durée agent : {agent_dur} s")
-        stats = agent.get("stats") or {}
+        dur_line = _duration_line(result)
+        if dur_line:
+            lines.append(dur_line)
+        stats = _extract_stats(result)
         if stats.get("matches_updated") is not None:
             lines.append(f"Matchs mis à jour : {stats['matches_updated']}")
-        tokens_line = _format_tokens(stats.get("tokens"))
-        if tokens_line != "n/d":
-            lines.append(f"Tokens : {tokens_line}")
+        if not _is_cdm_programmatic(result):
+            tokens_line = _format_tokens(stats.get("tokens"))
+            if tokens_line != "n/d":
+                lines.append(f"Tokens : {tokens_line}")
         return "\n".join(lines)
 
-    agent = result.get("agent") or {}
     git_pull = result.get("git_pull") or {}
-    stats = agent.get("stats") or {}
+    git_push = result.get("git_push") or {}
+    stats = _extract_stats(result)
 
     lines = [title]
-    agent_dur = agent.get("duration_sec")
-    if agent_dur is not None:
-        lines.append(f"Durée agent : {agent_dur} s")
+    dur_line = _duration_line(result)
+    if dur_line:
+        lines.append(dur_line)
 
     matches = stats.get("matches_updated")
     lines.append(f"Matchs mis à jour : {matches if matches is not None else 'n/d'}")
-    lines.append(f"Tokens : {_format_tokens(stats.get('tokens'))}")
 
-    files = git_pull.get("files_committed")
+    if not _is_cdm_programmatic(result):
+        lines.append(f"Tokens : {_format_tokens(stats.get('tokens'))}")
+
+    files = git_push.get("files_committed")
+    if files is None:
+        files = git_pull.get("files_committed")
     if files is None:
         files = 0
     lines.append(f"Fichiers commités : {files}")
@@ -78,7 +108,10 @@ def build_report_text(record: dict[str, Any]) -> str:
         lines.append(f"Commit : {commit}")
 
     total_dur = result.get("duration_sec")
-    if total_dur is not None and total_dur != agent_dur:
+    cdm_dur = (result.get("cdm") or {}).get("duration_sec")
+    agent_dur = (result.get("agent") or {}).get("duration_sec")
+    ref_dur = cdm_dur if cdm_dur is not None else agent_dur
+    if total_dur is not None and ref_dur is not None and total_dur != ref_dur:
         lines.append(f"Durée totale (pull + deploy) : {total_dur} s")
 
     return "\n".join(lines)

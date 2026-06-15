@@ -16,14 +16,16 @@ _PARIS = ZoneInfo("Europe/Paris")
 @dataclass(frozen=True)
 class JobConfig:
     job_id: str
+    handler: str
     repo: str
     repo_url: str
     branch: str
-    skill: str
     deploy: str | None
-    prompt_file: str
     workspace_subdir: str
     stop_after: str | None = None
+    skill: str | None = None
+    prompt_file: str | None = None
+    data_file: str | None = None
 
 
 def job_is_expired(job: JobConfig, *, today: date | None = None) -> bool:
@@ -45,14 +47,16 @@ def load_jobs() -> dict[str, JobConfig]:
     for job_id, entry in raw.items():
         jobs[job_id] = JobConfig(
             job_id=job_id,
+            handler=entry.get("handler", "agent"),
             repo=entry["repo"],
             repo_url=entry.get("repo_url", f"https://github.com/{entry['repo']}.git"),
             branch=entry.get("branch", "main"),
-            skill=entry["skill"],
+            skill=entry.get("skill"),
             deploy=entry.get("deploy"),
-            prompt_file=entry["prompt_file"],
+            prompt_file=entry.get("prompt_file"),
             workspace_subdir=entry.get("workspace_subdir", entry["repo"].split("/")[-1]),
             stop_after=entry.get("stop_after"),
+            data_file=entry.get("data_file"),
         )
     return jobs
 
@@ -65,6 +69,8 @@ def get_job(job_id: str) -> JobConfig:
 
 
 def load_prompt(job: JobConfig) -> str:
+    if not job.prompt_file:
+        raise FileNotFoundError(f"prompt_file non configuré pour job {job.job_id}")
     path = config_dir() / job.prompt_file
     if not path.is_file():
         raise FileNotFoundError(f"Prompt introuvable : {path}")

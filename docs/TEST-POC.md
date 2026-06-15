@@ -3,8 +3,9 @@
 ## Prérequis test
 
 - Stack démarrée (`docker compose ps` → `healthy` / `running`)
-- `.env` renseigné avec `CURSOR_API_KEY` et `RUNNER_API_KEY` valides
-- GitHub `chapiber/MyDiveClub` connecté à Cursor
+- `.env` renseigné avec `RUNNER_API_KEY` valide
+- Deploy key **read/write** sur `chapiber/MyDiveClub` montée dans `secrets/id_ed25519` (push CDM)
+- `CURSOR_API_KEY` **non requis** pour `cdm2026-daily` (MAJ programmatique)
 
 ## Test 1 — Santé de la stack
 
@@ -41,9 +42,9 @@ ls -lt logs/runs/
 cat logs/runs/RUN_ID.json
 ```
 
-**Phases attendues :** `queued` → `agent_running` → `agent_done` → `git_pull` → `deploy` → `done`
+**Phases attendues :** `queued` → `git_pull` → `fetch` → `merge` → `standings` → `git_push` → `deploy` → `done`
 
-**Champ `report_text` :** présent dès le polling ; en fin de run, vérifier les métriques (durée, matchs, tokens, fichiers commités).
+**Champ `report_text` :** présent dès le polling ; en fin de run, vérifier durée MAJ, matchs mis à jour, fichiers commités (pas de tokens).
 
 ```bash
 curl -s http://localhost:8765/api/v1/runs/RUN_ID \
@@ -52,11 +53,14 @@ curl -s http://localhost:8765/api/v1/runs/RUN_ID \
 
 ## Test 2b — Run sync legacy
 
+> `cdm2026-daily` est **async uniquement** (`handler: cdm_update`). L'endpoint sync retourne une erreur — utiliser Test 2.
+
 ```bash
 curl -s -X POST http://localhost:8765/api/v1/run \
   -H "X-API-Key: $RUNNER_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"job_id":"cdm2026-daily"}' | python3 -m json.tool
+# Attendu : HTTP 502 ou NotImplementedError
 ```
 
 **Critères de succès :**
@@ -69,7 +73,7 @@ curl -s -X POST http://localhost:8765/api/v1/run \
 | Site prod | https://diveapps.serveblog.net/portailClub/apps/cdm2026/ — scores / horaires à jour |
 | Deploy log | `workspaces/MyDiveClub/deploy_logs/deploy_portailClub_*.log` dernier fichier OK |
 
-**Durée typique :** 5–20 minutes (agent cloud + web scan).
+**Durée typique :** 30 s – 2 min (fetch web + merge + push + deploy).
 
 ## Test 3 — Workflow n8n manuel
 
@@ -115,17 +119,16 @@ Remettre `stop_after: "2026-07-14"` après le test.
 
 ### Clé Cursor invalide
 
+Ne s'applique plus au job CDM (`cdm_update`). Pour d'éventuels futurs jobs `handler: agent` :
+
 ```bash
 # Dans .env, mettre une fausse clé, redémarrer :
 docker compose up -d skills-runner
-curl -X POST ... # doit retourner 502 avec agent_status startup_error ou error
 ```
-
-Remettre la vraie clé après le test.
 
 ### Aucun changement de données
 
-Si l'agent ne modifie rien : pas de nouveau commit, mais `git pull` + deploy doivent quand même réussir (`status: ok`).
+Si les sources web ne rapportent rien de nouveau : pas de nouveau commit (`git_push.committed: false`), mais pull + deploy doivent réussir (`status: ok`, `matches_updated: 0`).
 
 ## Journal du premier run POC
 
@@ -139,6 +142,14 @@ Si l'agent ne modifie rien : pas de nouveau commit, mais `git pull` + deploy doi
 | Action requise | Renseigner `CURSOR_API_KEY` réelle dans `.env` puis `sudo /usr/local/bin/docker compose restart skills-runner` |
 | n8n UI | http://192.168.1.28:5678 — **HTTP 200 OK** après bind mount `./n8n_data:/data` |
 | Workflow | Importer `n8n/workflows/cdm2026-daily.json` puis activer |
+
+## Test 7 — Tests unitaires (local / CI)
+
+```bash
+cd skills-runner
+pip install -r requirements.txt
+pytest tests/ -q
+```
 
 ## Commandes utiles
 

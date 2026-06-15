@@ -14,6 +14,7 @@ from typing import Any
 from cursor_sdk import Agent, AgentOptions, CloudAgentOptions, CloudRepository, CursorAgentError
 
 from .agent_stream import is_agent_success, run_cloud_agent_streaming
+from .cdm.updater import run_cdm_update
 from .jobs import JobConfig, load_prompt
 from .report import build_report_text
 from .run_store import update_run
@@ -154,6 +155,117 @@ def count_committed_files(ws: Path, head_before: str | None, head_after: str | N
     return len([line for line in proc.stdout.splitlines() if line.strip()])
 
 
+def git_ssh_env() -> dict[str, str]:
+    env = os.environ.copy()
+    key_path = Path("/secrets/id_ed25519")
+    if key_path.is_file():
+        env["GIT_SSH_COMMAND"] = "ssh -o StrictHostKeyChecking=accept-new -i /secrets/id_ed25519"
+    return env
+
+
+def git_commit_push(job: JobConfig, paths: list[str], message: str) -> dict[str, Any]:
+    """Commit et push si diff ; retourne métadonnées git."""
+    ws, clone_err = ensure_workspace_clone(job)
+    if clone_err:
+        return {
+            "committed": False,
+            "push_ok": False,
+            "push_stderr": clone_err.get("clone_stderr", ""),
+            "commit": None,
+            "files_committed": 0,
+        }
+
+    env = git_ssh_env()
+    head_before = _git_rev_parse(ws)
+
+    add_proc = subprocess.run(
+        ["git", "add", *paths],
+        cwd=ws,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
+    )
+    if add_proc.returncode != 0:
+        return {
+            "committed": False,
+            "push_ok": False,
+            "push_stderr": (add_proc.stderr or add_proc.stdout or "git add échoué")[:500],
+            "commit": None,
+            "files_committed": 0,
+        }
+
+    diff_proc = subprocess.run(
+        ["git", "diff", "--cached", "--quiet"],
+        cwd=ws,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+    if diff_proc.returncode == 0:
+        head_proc = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=ws,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        commit = head_proc.stdout.strip() if head_proc.returncode == 0 else None
+        return {
+            "committed": False,
+            "push_ok": True,
+            "push_stderr": "",
+            "commit": commit,
+            "files_committed": 0,
+        }
+
+    commit_proc = subprocess.run(
+        ["git", "commit", "-m", message],
+        cwd=ws,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
+    )
+    if commit_proc.returncode != 0:
+        return {
+            "committed": False,
+            "push_ok": False,
+            "push_stderr": (commit_proc.stderr or commit_proc.stdout or "git commit échoué")[:500],
+            "commit": None,
+            "files_committed": 0,
+        }
+
+    push_proc = subprocess.run(
+        ["git", "push", "origin", job.branch],
+        cwd=ws,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env=env,
+    )
+
+    head_after = _git_rev_parse(ws)
+    head_short_proc = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"],
+        cwd=ws,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    commit = head_short_proc.stdout.strip() if head_short_proc.returncode == 0 else None
+    files_committed = count_committed_files(ws, head_before, head_after)
+
+    return {
+        "committed": True,
+        "push_ok": push_proc.returncode == 0,
+        "push_stderr": (push_proc.stderr or "")[:500] if push_proc.returncode != 0 else "",
+        "commit": commit,
+        "files_committed": files_committed,
+    }
+
+
 def git_pull(job: JobConfig) -> dict[str, Any]:
     ws, clone_err = ensure_workspace_clone(job)
     if clone_err:
@@ -166,8 +278,7 @@ def git_pull(job: JobConfig) -> dict[str, Any]:
 
     head_before = _git_rev_parse(ws)
 
-    env = os.environ.copy()
-    env["GIT_SSH_COMMAND"] = "ssh -o StrictHostKeyChecking=accept-new -i /secrets/id_ed25519"
+    env = git_ssh_env()
 
     proc = subprocess.run(
         ["git", "pull", "--ff-only", "origin", job.branch],
@@ -241,8 +352,141 @@ def _finalize_error(out: dict[str, Any], phase: str, message: str, started: floa
     return out
 
 
+def execute_cdm_update_async(run_id: str, job: JobConfig) -> None:
+    """Pipeline programmatique CDM : pull → fetch/merge → push → deploy."""
+    started = time.time()
+    out: dict[str, Any] = {
+        "job_id": job.job_id,
+        "repo": job.repo,
+        "handler": "cdm_update",
+    }
+    update_duration = 0.0
+
+    def progress(msg: str) -> None:
+        update_run(run_id, log_line=f"[CDM_PROGRESS] {msg}")
+
+    try:
+        if not job.data_file:
+            msg = "data_file non configuré pour cdm_update"
+            result = _finalize_error(out, "config", msg, started)
+            _attach_report(result, run_id, job, "error", msg)
+            update_run(run_id, status="error", phase="error", message=msg, result=result)
+            return
+
+        update_run(run_id, phase="git_pull", message="git pull en cours")
+        progress("git_pull")
+        pull_result = git_pull(job)
+        out["git_pull"] = pull_result
+        update_run(
+            run_id,
+            log_line=(
+                f"[git_pull] ok={pull_result.get('pull_ok')} "
+                f"commit={pull_result.get('commit')} files={pull_result.get('files_committed', 0)}"
+            ),
+        )
+
+        if not pull_result.get("pull_ok"):
+            msg = pull_result.get("pull_stderr") or "git pull échoué"
+            result = _finalize_error(out, "git_pull", msg, started)
+            _attach_report(result, run_id, job, "error", msg)
+            update_run(run_id, status="error", phase="error", message=msg, result=result)
+            return
+
+        data_path = workspace_path(job) / job.data_file
+        update_started = time.time()
+
+        update_run(run_id, phase="fetch", message="Récupération scores web")
+        progress("fetch")
+
+        def phase_progress(msg: str) -> None:
+            if msg.startswith("merge"):
+                update_run(run_id, phase="merge", message="Fusion scores")
+            elif msg.startswith("recalcul"):
+                update_run(run_id, phase="standings", message="Recalcul classements")
+            progress(msg)
+
+        _, stats, _written = run_cdm_update(data_path, progress=phase_progress)
+        update_duration = round(time.time() - update_started, 1)
+
+        update_run(run_id, phase="git_push", message="Commit et push GitHub")
+        progress("git_push")
+        commit_msg = f"chore(cdm2026): MAJ quotidienne — {stats.matches_updated} match(s)"
+        push_result = git_commit_push(job, [job.data_file], commit_msg)
+        out["git_push"] = push_result
+        update_run(
+            run_id,
+            log_line=(
+                f"[git_push] committed={push_result.get('committed')} "
+                f"push_ok={push_result.get('push_ok')} commit={push_result.get('commit')}"
+            ),
+        )
+
+        if push_result.get("committed") and not push_result.get("push_ok"):
+            msg = push_result.get("push_stderr") or "git push échoué"
+            result = _finalize_error(out, "git_push", msg, started)
+            _attach_report(result, run_id, job, "error", msg)
+            update_run(run_id, status="error", phase="error", message=msg, result=result)
+            return
+
+        update_run(run_id, phase="deploy", message="Déploiement portailClub")
+        progress("deploy")
+        deploy_result = run_deploy(job)
+        out["deploy_result"] = deploy_result
+        update_run(run_id, log_line=f"[deploy] status={deploy_result.get('deploy')}")
+
+        if deploy_result.get("deploy") == "error":
+            msg = deploy_result.get("stderr_tail") or "deploy échoué"
+            result = _finalize_error(out, "deploy", msg, started)
+            _attach_report(result, run_id, job, "error", msg)
+            update_run(run_id, status="error", phase="error", message=msg, result=result)
+            return
+
+        summary = stats.summary_text()
+        out["cdm"] = {
+            "duration_sec": update_duration,
+            "stats": {
+                "matches_updated": stats.matches_updated,
+                "sources": stats.sources,
+                "conflicts": len(stats.conflicts),
+                "fetch_errors": len(stats.fetch_errors),
+            },
+        }
+        out["agent"] = {
+            "agent_status": "finished",
+            "agent_summary": summary,
+            "duration_sec": update_duration,
+            "stats": {"matches_updated": stats.matches_updated},
+        }
+        out["status"] = "ok"
+        out["phase"] = "done"
+        out["commit"] = push_result.get("commit") or pull_result.get("commit")
+        out["duration_sec"] = round(time.time() - started, 1)
+        progress("done")
+
+        done_msg = f"Terminé — {stats.matches_updated} match(s) — commit {out.get('commit')}"
+        _attach_report(out, run_id, job, "done", done_msg)
+        update_run(
+            run_id,
+            status="done",
+            phase="done",
+            message=done_msg,
+            result=out,
+        )
+        logger.info("Run CDM programmatique terminé run_id=%s matches=%s", run_id, stats.matches_updated)
+
+    except Exception as err:
+        logger.exception("execute_cdm_update_async exception run_id=%s", run_id)
+        result = _finalize_error(out, "exception", str(err), started)
+        result["traceback_tail"] = traceback.format_exc()[-1500:]
+        _attach_report(result, run_id, job, "error", str(err))
+        update_run(run_id, status="error", phase="error", message=str(err), result=result)
+
+
 def execute_job(job: JobConfig) -> dict[str, Any]:
     """Exécution synchrone (legacy)."""
+    if job.handler == "cdm_update":
+        raise NotImplementedError("Utiliser POST /api/v1/runs pour cdm_update (async)")
+
     started = time.time()
     out: dict[str, Any] = {"job_id": job.job_id, "repo": job.repo, "skill": job.skill}
 
@@ -307,6 +551,10 @@ def _attach_report(out: dict[str, Any], run_id: str, job: JobConfig, status: str
 
 def execute_job_async(run_id: str, job: JobConfig) -> None:
     """Exécution async avec suivi run_store."""
+    if job.handler == "cdm_update":
+        execute_cdm_update_async(run_id, job)
+        return
+
     started = time.time()
     out: dict[str, Any] = {"job_id": job.job_id, "repo": job.repo, "skill": job.skill}
 

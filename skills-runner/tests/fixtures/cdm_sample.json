@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "updatedAt": "2026-06-11T00:00:00.000Z",
+    "updatedBy": "local"
+  },
+  "teams": [],
+  "groups": [
+    {
+      "id": "A",
+      "teams": ["MEX", "KOR", "RSA", "CZE"],
+      "standings": [
+        {"team": "MEX", "played": 0, "won": 0, "drawn": 0, "lost": 0, "gf": 0, "ga": 0, "pts": 0},
+        {"team": "KOR", "played": 0, "won": 0, "drawn": 0, "lost": 0, "gf": 0, "ga": 0, "pts": 0},
+        {"team": "RSA", "played": 0, "won": 0, "drawn": 0, "lost": 0, "gf": 0, "ga": 0, "pts": 0},
+        {"team": "CZE", "played": 0, "won": 0, "drawn": 0, "lost": 0, "gf": 0, "ga": 0, "pts": 0}
+      ]
+    }
+  ],
+  "matches": [
+    {
+      "id": "M001",
+      "stage": "group",
+      "group": "A",
+      "home": "MEX",
+      "away": "RSA",
+      "kickoffParis": "2026-06-11T21:00:00+02:00",
+      "score": {"home": 2, "away": 0, "status": "finished"}
+    },
+    {
+      "id": "M002",
+      "stage": "group",
+      "group": "A",
+      "home": "KOR",
+      "away": "CZE",
+      "kickoffParis": "2026-06-12T04:00:00+02:00",
+      "score": {"home": 2, "away": 1, "status": "finished"}
+    },
+    {
+      "id": "M005",
+      "stage": "group",
+      "group": "C",
+      "home": "HTI",
+      "away": "SCO",
+      "kickoffParis": "2026-06-14T03:00:00+02:00",
+      "score": {"home": null, "away": null, "status": "scheduled"}
+    }
+  ]
+}
