@@ -77,7 +77,7 @@ curl -s -X POST http://localhost:8765/api/v1/run \
 2. Workflow **CDM 2026 — MAJ quotidienne**
 3. **Execute workflow** (bouton play)
 4. Pendant l'exécution : boucle **Attendre 30s → Lire statut → Journaliser phase** (visible dans Executions → Logs)
-5. Fin : branche **Résultat OK** (`status: done`, champs `cr` / `report_text`) ou **Résultat erreur**
+5. Fin : branche **Résultat OK** (`status: done`, champs `cr` / `report_text`) ou **Résultat erreur**, puis **Envoyer CR par mail**
 
 ## Test 4 — Expiration workflow (après 14/07/2026)
 

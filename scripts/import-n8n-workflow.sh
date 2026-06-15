@@ -12,6 +12,10 @@ WF_ID="CdM2026DailyWf01"
 CONTAINER="${N8N_CONTAINER:-cursor-n8n}"
 COMPOSE_FILE="$ROOT/docker-compose.yml"
 DOCKER="${DOCKER_BIN:-/usr/local/bin/docker}"
+# Synology : docker nécessite souvent sudo hors session admin.
+if ! $DOCKER ps >/dev/null 2>&1; then
+  DOCKER="sudo ${DOCKER}"
+fi
 COMPOSE="${DOCKER} compose -f ${COMPOSE_FILE}"
 ACTIVATE="${1:---activate}"
 
@@ -42,10 +46,10 @@ with open(dst, "w", encoding="utf-8") as f:
 PY
 
 echo "Copie vers conteneur $CONTAINER..."
-$DOCKER cp "$TMP" "$CONTAINER:/tmp/cdm2026-daily-import.json"
+$DOCKER cp "$TMP" "$CONTAINER:/home/node/cdm2026-daily-import.json"
 
 echo "Import n8n..."
-$DOCKER exec "$CONTAINER" n8n import:workflow --input=/tmp/cdm2026-daily-import.json
+$DOCKER exec "$CONTAINER" n8n import:workflow --input=/home/node/cdm2026-daily-import.json
 
 if [[ "$ACTIVATE" != "--no-activate" ]]; then
   echo "Réenregistrement planification (unpublish → publish)..."

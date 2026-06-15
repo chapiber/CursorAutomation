@@ -112,7 +112,30 @@ Le script copie `n8n/workflows/cdm2026-daily.json` dans le conteneur, l'importe 
 
 ### Compte-rendu texte (n8n)
 
-Chaque exécution expose un champ **`report_text`** (et **`cr`**) dans les nœuds **Résultat OK**, **Résultat erreur** ou **Expiré**.
+Chaque exécution expose un champ **`report_text`** (et **`cr`**) dans les nœuds **Résultat OK**, **Résultat erreur** ou **Expiré**, puis envoie un e-mail à **chapron.loic@gmail.com** via `POST /api/v1/notify` (skills-runner SMTP).
+
+Configurer dans `.env` :
+
+```bash
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=chapron.loic@gmail.com
+SMTP_PASS=<mot_de_passe_application_Gmail>
+SMTP_FROM=chapron.loic@gmail.com
+NOTIFY_TO=chapron.loic@gmail.com
+```
+
+Test manuel :
+
+```bash
+source .env
+curl -s -X POST http://localhost:8765/api/v1/notify \
+  -H "X-API-Key: $RUNNER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"subject":"[CDM 2026] test","body":"Ping notify"}' | python3 -m json.tool
+```
+
+Puis `docker compose up -d --build skills-runner` si le code a changé.
 
 Consultation sans relancer :
 
@@ -177,6 +200,7 @@ bash scripts/import-n8n-workflow.sh
 | Manuel → branche **Expiré** avant le 14/07 | Expression date du nœud **Encore actif ?** non évaluée — réimporter le workflow corrigé |
 | `410 job expiré` | Normal après le 14/07/2026 — vérifier `stop_after` dans jobs.json |
 | `report_text` vide / n/d | Agent n'a pas émis `[CDM_STATS]` ou tokens non exposés par le SDK |
+| E-mail non reçu | Vérifier `SMTP_*` dans `.env`, rebuild `skills-runner`, tester `POST /api/v1/notify` |
 
 Logs :
 
