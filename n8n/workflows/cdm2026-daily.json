@@ -417,8 +417,8 @@
       "position": [2140, 300],
       "credentials": {
         "gmailOAuth2": {
-          "id": "CdMGmailOauth01",
-          "name": "CDM Gmail OAuth"
+          "id": "GmailAccountCred",
+          "name": "Gmail account"
         }
       }
     }
