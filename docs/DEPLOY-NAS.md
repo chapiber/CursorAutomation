@@ -110,34 +110,31 @@ Le script copie `n8n/workflows/cdm2026-daily.json` dans le conteneur, l'importe 
 - À partir du **15/07/2026** : le nœud n8n **Encore actif ?** route vers **Expiré** (CR texte sans appel agent)
 - Garde-fou API : `stop_after: "2026-07-14"` dans `config/jobs.json` → `POST /api/v1/runs` retourne **410** si date dépassée
 
-### Compte-rendu texte (n8n)
+### Compte-rendu e-mail (credential SMTP n8n)
 
-Chaque exécution expose un champ **`report_text`** (et **`cr`**) dans les nœuds **Résultat OK**, **Résultat erreur** ou **Expiré**, puis envoie un e-mail à **chapron.loic@gmail.com** via `POST /api/v1/notify` (skills-runner SMTP).
+Chaque exécution envoie un e-mail à **chapron.loic@gmail.com** via le nœud **Envoyer CR par mail** (SMTP n8n). Le mot de passe **n'est pas** stocké dans `.env` : il est chiffré dans la base n8n (`N8N_ENCRYPTION_KEY`).
 
-Configurer dans `.env` :
+**Créer le credential (une fois) :**
 
-```bash
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=chapron.loic@gmail.com
-SMTP_PASS=<mot_de_passe_application_Gmail>
-SMTP_FROM=chapron.loic@gmail.com
-NOTIFY_TO=chapron.loic@gmail.com
-```
+1. Ouvrir `http://<IP-NAS>:5678`
+2. **Credentials** → **Add credential** → **SMTP**
+3. Renseigner :
 
-Test manuel :
+| Champ | Valeur |
+|-------|--------|
+| **Credential name** | `CDM Gmail SMTP` (nom exact) |
+| **User** | `chapron.loic@gmail.com` |
+| **Password** | mot de passe d'application Gmail |
+| **Host** | `smtp.gmail.com` |
+| **Port** | `587` |
+| **SSL/TLS** | STARTTLS |
 
-```bash
-source .env
-curl -s -X POST http://localhost:8765/api/v1/notify \
-  -H "X-API-Key: $RUNNER_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"subject":"[CDM 2026] test","body":"Ping notify"}' | python3 -m json.tool
-```
+4. Ouvrir le workflow **CDM 2026 — MAJ quotidienne** → nœud **Envoyer CR par mail** → vérifier que le credential **CDM Gmail SMTP** est sélectionné (après import, parfois à relier manuellement).
+5. **Test** : exécuter le workflow manuellement sur la branche **Expiré** (rapide) ou attendre une fin de run complète.
 
-Puis `docker compose up -d --build skills-runner` si le code a changé.
+> Sauvegarder `N8N_ENCRYPTION_KEY` : sans elle, les credentials n8n ne sont plus déchiffrables après restauration.
 
-Consultation sans relancer :
+Consultation du CR sans relancer :
 
 ```bash
 curl -s "http://localhost:8765/api/v1/runs/latest?job_id=cdm2026-daily" \
@@ -200,7 +197,7 @@ bash scripts/import-n8n-workflow.sh
 | Manuel → branche **Expiré** avant le 14/07 | Expression date du nœud **Encore actif ?** non évaluée — réimporter le workflow corrigé |
 | `410 job expiré` | Normal après le 14/07/2026 — vérifier `stop_after` dans jobs.json |
 | `report_text` vide / n/d | Agent n'a pas émis `[CDM_STATS]` ou tokens non exposés par le SDK |
-| E-mail non reçu | Vérifier `SMTP_*` dans `.env`, rebuild `skills-runner`, tester `POST /api/v1/notify` |
+| E-mail non reçu | Credential **CDM Gmail SMTP** créé dans n8n ? Nœud **Envoyer CR par mail** relié ? Mot de passe d'application Gmail valide ? |
 
 Logs :
 

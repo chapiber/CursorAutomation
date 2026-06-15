@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import os
-import smtplib
 import threading
 from typing import Any
 
@@ -13,7 +12,6 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .jobs import get_job, job_is_expired
-from .notify import NotifyConfigError, send_email
 from .run_store import create_run, get_latest_run, get_run, public_view
 from .runner import execute_job, execute_job_async
 
@@ -28,12 +26,6 @@ app = FastAPI(title="Cursor Skills Runner", version="0.2.0")
 
 class RunRequest(BaseModel):
     job_id: str = Field(..., description="Identifiant du job (config/jobs.json)")
-
-
-class NotifyRequest(BaseModel):
-    to: str | None = Field(default=None, description="Destinataire (défaut NOTIFY_TO ou chapron.loic@gmail.com)")
-    subject: str = Field(..., min_length=1, description="Objet du mail")
-    body: str = Field(..., min_length=1, description="Corps texte du compte-rendu")
 
 
 def verify_api_key(x_api_key: str | None) -> None:
@@ -79,25 +71,6 @@ def _start_background(run_id: str, job) -> None:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "skills-runner"}
-
-
-@app.post("/api/v1/notify")
-def notify(
-    body: NotifyRequest,
-    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
-) -> dict[str, Any]:
-    """Envoie un compte-rendu par e-mail (appelé par n8n en fin de workflow)."""
-    verify_api_key(x_api_key)
-    try:
-        result = send_email(to=body.to or "", subject=body.subject, body=body.body)
-    except NotifyConfigError as err:
-        raise HTTPException(status_code=503, detail=str(err)) from err
-    except smtplib.SMTPException as err:
-        logger.exception("Échec SMTP")
-        raise HTTPException(status_code=502, detail=f"Échec envoi e-mail : {err}") from err
-
-    logger.info("E-mail envoyé to=%s", result["to"])
-    return {"status": "ok", **result}
 
 
 @app.post("/api/v1/runs", status_code=202)

@@ -56,7 +56,7 @@ if (ifNode) {
   console.log('Condition:', c?.leftValue, c?.operator?.type, c?.operator?.operation);
 }
 const mailNode = x.nodes.find(n => n.name === 'Envoyer CR par mail');
-console.log('Mail notify:', mailNode ? 'présent' : 'absent');
+console.log('Mail node:', mailNode ? mailNode.type : 'absent');
 "
 
 echo "Import terminé."

@@ -400,31 +400,24 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "http://skills-runner:8080/api/v1/notify",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-API-Key",
-              "value": "={{ $env.RUNNER_API_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ to: 'chapron.loic@gmail.com', subject: '[CDM 2026] ' + ($json.status || 'info') + ' — ' + $now.setZone('Europe/Paris').toFormat('dd/MM/yyyy HH:mm'), body: $json.cr || $json.report_text || JSON.stringify($json, null, 2) }) }}",
+        "fromEmail": "chapron.loic@gmail.com",
+        "toEmail": "chapron.loic@gmail.com",
+        "subject": "={{ '[CDM 2026] ' + ($json.status || 'info') + ' — ' + $now.setZone('Europe/Paris').toFormat('dd/MM/yyyy HH:mm') }}",
+        "emailFormat": "text",
+        "text": "={{ $json.cr || $json.report_text || JSON.stringify($json, null, 2) }}",
         "options": {}
       },
-      "id": "http-notify",
+      "id": "email-notify",
       "name": "Envoyer CR par mail",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [2140, 300]
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2140, 300],
+      "credentials": {
+        "smtp": {
+          "id": "CdMSmtpCred01",
+          "name": "CDM Gmail SMTP"
+        }
+      }
     }
   ],
   "connections": {
