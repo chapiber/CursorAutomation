@@ -30,37 +30,22 @@ if ! $DOCKER ps --format '{{.Names}}' | grep -qx "$CONTAINER"; then
   sleep 5
 fi
 
-TMP="$(mktemp /tmp/cdm2026-daily-import.XXXXXX.json)"
-cleanup() { rm -f "$TMP"; }
-trap cleanup EXIT
-
-python3 - "$WF_SRC" "$TMP" <<'PY'
-import json, sys
-src, dst = sys.argv[1], sys.argv[2]
-with open(src, encoding="utf-8") as f:
-    data = json.load(f)
-# n8n 2.x : l'activation effective passe par publish:workflow (voir fin du script).
-data["active"] = False
-with open(dst, "w", encoding="utf-8") as f:
-    json.dump(data, f, ensure_ascii=False, indent=2)
-PY
-
 echo "Copie vers conteneur $CONTAINER..."
-$DOCKER cp "$TMP" "$CONTAINER:/home/node/cdm2026-daily-import.json"
+$DOCKER cp "$WF_SRC" "$CONTAINER:/home/node/cdm2026-daily-import.json"
 
 echo "Import n8n..."
-$DOCKER exec "$CONTAINER" n8n import:workflow --input=/home/node/cdm2026-daily-import.json
+$DOCKER exec -u node "$CONTAINER" n8n import:workflow --input=/home/node/cdm2026-daily-import.json
 
 if [[ "$ACTIVATE" != "--no-activate" ]]; then
   echo "Réenregistrement planification (unpublish → publish)..."
-  $DOCKER exec "$CONTAINER" n8n unpublish:workflow --id="$WF_ID" 2>/dev/null || true
-  $DOCKER exec "$CONTAINER" n8n publish:workflow --id="$WF_ID"
+  $DOCKER exec -u node "$CONTAINER" n8n unpublish:workflow --id="$WF_ID" 2>/dev/null || true
+  $DOCKER exec -u node "$CONTAINER" n8n publish:workflow --id="$WF_ID"
 fi
 
 echo "Vérification..."
-$DOCKER exec "$CONTAINER" n8n export:workflow --id="$WF_ID" --output=/tmp/wf-check.json
-$DOCKER exec "$CONTAINER" node -e "
-const w = require('/tmp/wf-check.json');
+$DOCKER exec -u node "$CONTAINER" n8n export:workflow --id="$WF_ID" --output=/home/node/wf-check.json
+$DOCKER exec -u node "$CONTAINER" node -e "
+const w = require('/home/node/wf-check.json');
 const x = Array.isArray(w) ? w[0] : w;
 console.log('Workflow:', x.name);
 console.log('Active:', x.active);
@@ -70,6 +55,8 @@ if (ifNode) {
   const c = ifNode.parameters?.conditions?.conditions?.[0];
   console.log('Condition:', c?.leftValue, c?.operator?.type, c?.operator?.operation);
 }
+const mailNode = x.nodes.find(n => n.name === 'Envoyer CR par mail');
+console.log('Mail notify:', mailNode ? 'présent' : 'absent');
 "
 
 echo "Import terminé."
