@@ -124,10 +124,14 @@ Chaque exécution envoie un e-mail à **chapron.loic@gmail.com** via le nœud **
 |-------|--------|
 | **Credential name** | `CDM Gmail SMTP` (nom exact) |
 | **User** | `chapron.loic@gmail.com` |
-| **Password** | mot de passe d'application Gmail |
+| **Password** | mot de passe d'application Gmail (16 caractères, sans espaces) |
 | **Host** | `smtp.gmail.com` |
 | **Port** | `587` |
-| **SSL/TLS** | STARTTLS |
+| **SSL/TLS** | **Disable SSL** (connexion en clair puis STARTTLS — *pas* « SSL » ni « TLS » direct) |
+
+> **Erreur `wrong version number` au test :** le port et le mode SSL ne correspondent pas. Sur le port **587**, il faut **Disable SSL** (STARTTLS implicite dans n8n). Si l’UI propose un toggle « Use SSL », le laisser **désactivé** avec le port 587.
+>
+> **Alternative Gmail** (si 587 échoue toujours) : port **465**, mode **SSL/TLS** activé (connexion chiffrée dès le départ).
 
 4. Ouvrir le workflow **CDM 2026 — MAJ quotidienne** → nœud **Envoyer CR par mail** → vérifier que le credential **CDM Gmail SMTP** est sélectionné (après import, parfois à relier manuellement).
 5. **Test** : exécuter le workflow manuellement sur la branche **Expiré** (rapide) ou attendre une fin de run complète.
@@ -197,7 +201,7 @@ bash scripts/import-n8n-workflow.sh
 | Manuel → branche **Expiré** avant le 14/07 | Expression date du nœud **Encore actif ?** non évaluée — réimporter le workflow corrigé |
 | `410 job expiré` | Normal après le 14/07/2026 — vérifier `stop_after` dans jobs.json |
 | `report_text` vide / n/d | Agent n'a pas émis `[CDM_STATS]` ou tokens non exposés par le SDK |
-| E-mail non reçu | Credential **CDM Gmail SMTP** créé dans n8n ? Nœud **Envoyer CR par mail** relié ? Mot de passe d'application Gmail valide ? |
+| E-mail non reçu | Credential **CDM Gmail SMTP** créé ? Port **587** + SSL **désactivé** (ou port **465** + SSL activé). Mot de passe d'application valide ? |
 
 Logs :
 
