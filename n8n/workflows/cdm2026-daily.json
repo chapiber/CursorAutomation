@@ -1,7 +1,7 @@
 {
   "id": "CdM2026DailyWf01",
   "name": "CDM 2026 — MAJ quotidienne",
-  "active": false,
+  "active": true,
   "activeVersionId": null,
   "nodes": [
     {
@@ -32,11 +32,12 @@
           "conditions": [
             {
               "id": "date-active",
-              "leftValue": "={{ $now.setZone('Europe/Paris').toFormat('yyyy-MM-dd') }}",
-              "rightValue": "2026-07-14",
+              "leftValue": "={{ $now.setZone('Europe/Paris').toISODate() <= '2026-07-14' }}",
+              "rightValue": "",
               "operator": {
-                "type": "string",
-                "operation": "lte"
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
               }
             }
           ],

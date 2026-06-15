@@ -1,17 +1,29 @@
 #!/usr/bin/env bash
 # Importe (ou met à jour) le workflow CDM dans n8n via CLI Docker.
-# Usage : bash scripts/import-n8n-workflow.sh [--activate]
+# Usage : bash scripts/import-n8n-workflow.sh [--no-activate]
+#
+# Après import, unpublish → publish réenregistre le cron 7h (n8n 2.x).
+# Ne pas stopper le conteneur n8n : un simple restart casse le schedule trigger.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WF_SRC="$ROOT/n8n/workflows/cdm2026-daily.json"
 WF_ID="CdM2026DailyWf01"
 CONTAINER="${N8N_CONTAINER:-cursor-n8n}"
-ACTIVATE="${1:-}"
+COMPOSE_FILE="$ROOT/docker-compose.yml"
+DOCKER="${DOCKER_BIN:-/usr/local/bin/docker}"
+COMPOSE="${DOCKER} compose -f ${COMPOSE_FILE}"
+ACTIVATE="${1:---activate}"
 
 if [[ ! -f "$WF_SRC" ]]; then
   echo "Workflow introuvable : $WF_SRC" >&2
   exit 1
+fi
+
+if ! $DOCKER ps --format '{{.Names}}' | grep -qx "$CONTAINER"; then
+  echo "Conteneur $CONTAINER absent — démarrage..."
+  $COMPOSE up -d n8n
+  sleep 5
 fi
 
 TMP="$(mktemp /tmp/cdm2026-daily-import.XXXXXX.json)"
@@ -23,34 +35,37 @@ import json, sys
 src, dst = sys.argv[1], sys.argv[2]
 with open(src, encoding="utf-8") as f:
     data = json.load(f)
-data["active"] = True
+# n8n 2.x : l'activation effective passe par publish:workflow (voir fin du script).
+data["active"] = False
 with open(dst, "w", encoding="utf-8") as f:
     json.dump(data, f, ensure_ascii=False, indent=2)
 PY
 
 echo "Copie vers conteneur $CONTAINER..."
-docker cp "$TMP" "$CONTAINER:/tmp/cdm2026-daily-import.json"
+$DOCKER cp "$TMP" "$CONTAINER:/tmp/cdm2026-daily-import.json"
 
 echo "Import n8n..."
-docker exec "$CONTAINER" n8n import:workflow --input=/tmp/cdm2026-daily-import.json
+$DOCKER exec "$CONTAINER" n8n import:workflow --input=/tmp/cdm2026-daily-import.json
 
-DB="${ROOT}/n8n_data/.n8n/database.sqlite"
-if [[ -f "$DB" ]] && [[ "$ACTIVATE" == "--activate" || "$ACTIVATE" == "" ]]; then
-  echo "Activation workflow $WF_ID..."
-  docker compose -f "$ROOT/docker-compose.yml" stop n8n >/dev/null 2>&1 || true
-  docker run --rm -v "$ROOT/n8n_data/.n8n:/db" alpine:3.20 sh -c \
-    "apk add --no-cache sqlite >/dev/null && sqlite3 /db/database.sqlite \"UPDATE workflow_entity SET active = 1 WHERE id = '$WF_ID'; SELECT id, active FROM workflow_entity WHERE id='$WF_ID';\""
-  docker compose -f "$ROOT/docker-compose.yml" start n8n >/dev/null 2>&1 || docker start "$CONTAINER"
+if [[ "$ACTIVATE" != "--no-activate" ]]; then
+  echo "Réenregistrement planification (unpublish → publish)..."
+  $DOCKER exec "$CONTAINER" n8n unpublish:workflow --id="$WF_ID" 2>/dev/null || true
+  $DOCKER exec "$CONTAINER" n8n publish:workflow --id="$WF_ID"
 fi
 
 echo "Vérification..."
-docker exec "$CONTAINER" n8n export:workflow --id="$WF_ID" --output=/tmp/wf-check.json
-docker exec "$CONTAINER" node -e "
+$DOCKER exec "$CONTAINER" n8n export:workflow --id="$WF_ID" --output=/tmp/wf-check.json
+$DOCKER exec "$CONTAINER" node -e "
 const w = require('/tmp/wf-check.json');
 const x = Array.isArray(w) ? w[0] : w;
 console.log('Workflow:', x.name);
 console.log('Active:', x.active);
 console.log('Nodes:', x.nodes.map(n => n.name).join(', '));
+const ifNode = x.nodes.find(n => n.name === 'Encore actif ?');
+if (ifNode) {
+  const c = ifNode.parameters?.conditions?.conditions?.[0];
+  console.log('Condition:', c?.leftValue, c?.operator?.type, c?.operator?.operation);
+}
 "
 
 echo "Import terminé."

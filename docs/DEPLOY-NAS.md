@@ -90,7 +90,9 @@ docker compose ps
 bash scripts/import-n8n-workflow.sh
 ```
 
-Le script copie `n8n/workflows/cdm2026-daily.json` dans le conteneur, l'importe via `n8n import:workflow`, réactive le workflow (`CdM2026DailyWf01`) et redémarre n8n si besoin.
+Le script copie `n8n/workflows/cdm2026-daily.json` dans le conteneur, l'importe via `n8n import:workflow`, puis **unpublish → publish** (`CdM2026DailyWf01`) pour réenregistrer le cron 7h sans redémarrer n8n.
+
+> **Important** : ne pas stopper/redémarrer n8n manuellement après import — cela désynchronise le schedule trigger. En cas de doute, relancer `bash scripts/import-n8n-workflow.sh`.
 
 **Manuel (UI) :**
 
@@ -171,6 +173,8 @@ bash scripts/import-n8n-workflow.sh
 | `git clone` exit 128 | Dossier cible déjà présent — le runner supprime et reclone automatiquement (v0.2+) |
 | Suivi run en cours | `GET /api/v1/runs/{run_id}` ou `logs/runs/{run_id}.json` sur NAS |
 | Timeout n8n | Boucle polling 30s × ~40 = 20 min max ; agent cloud 5–20 min |
+| Pas de run 7h après import / restart | `staticData` schedule vide — relancer `bash scripts/import-n8n-workflow.sh` (unpublish → publish) |
+| Manuel → branche **Expiré** avant le 14/07 | Expression date du nœud **Encore actif ?** non évaluée — réimporter le workflow corrigé |
 | `410 job expiré` | Normal après le 14/07/2026 — vérifier `stop_after` dans jobs.json |
 | `report_text` vide / n/d | Agent n'a pas émis `[CDM_STATS]` ou tokens non exposés par le SDK |
 

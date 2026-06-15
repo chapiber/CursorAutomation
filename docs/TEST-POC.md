@@ -103,11 +103,13 @@ Remettre `stop_after: "2026-07-14"` après le test.
 
 ## Test 5 — Planification 7h
 
-- Workflow **activé** (toggle ON)
+- Workflow **publié** (`n8n publish:workflow --id=CdM2026DailyWf01` ou import script)
 - Timezone workflow : `Europe/Paris`
 - Cron : `0 7 * * *`
 
 **Validation rapide :** modifier temporairement le cron à `*/5 * * * *`, attendre 5 min, vérifier l'historique **Executions** dans n8n, puis remettre `0 7 * * *`.
+
+**Après import ou redémarrage n8n :** relancer `bash scripts/import-n8n-workflow.sh` (unpublish → publish) — un simple toggle UI ou restart ne suffit pas toujours.
 
 ## Test 6 — Cas d'erreur
 
