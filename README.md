@@ -24,7 +24,7 @@ Voir [docs/DEPLOY-NAS.md](docs/DEPLOY-NAS.md) et [docs/TEST-POC.md](docs/TEST-PO
 | Service | RÃ´le |
 |---------|------|
 | `skills-runner` | API FastAPI + Cursor SDK cloud + deploy |
-| `n8n` | Scheduler + workflows (UI : `https://diveapps.serveblog.net/n8n/` en prod) |
+| `n8n` | Scheduler + workflows (UI : `https://pevbenin2025.synology.me:5679/` en prod) |
 
 ## API runner
 

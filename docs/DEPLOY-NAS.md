@@ -1,15 +1,15 @@
-# Déploiement CursorAutomation sur NAS Synology
+# DÃ©ploiement CursorAutomation sur NAS Synology
 
-## Prérequis
+## PrÃ©requis
 
-| Élément | Détail |
+| Ã‰lÃ©ment | DÃ©tail |
 |---------|--------|
 | Docker | Container Manager actif sur `NasChapron` |
 | Git | `git` disponible en SSH sur le NAS |
 | Repo GitHub | `chapiber/CursorAutomation` clonable |
-| Cursor API | Clé sur [Dashboard → Integrations](https://cursor.com/dashboard/integrations) — **optionnelle pour CDM** (jobs `handler: agent` uniquement) |
-| GitHub ↔ Cursor | Repo `chapiber/MyDiveClub` connecté au compte Cursor — **plus requis pour CDM** (MAJ programmatique) |
-| Accès web | `/volume1/web/portailClub` accessible en écriture |
+| Cursor API | ClÃ© sur [Dashboard â†’ Integrations](https://cursor.com/dashboard/integrations) â€” **optionnelle pour CDM** (jobs `handler: agent` uniquement) |
+| GitHub â†” Cursor | Repo `chapiber/MyDiveClub` connectÃ© au compte Cursor â€” **plus requis pour CDM** (MAJ programmatique) |
+| AccÃ¨s web | `/volume1/web/portailClub` accessible en Ã©criture |
 
 ## Emplacement
 
@@ -27,7 +27,7 @@ sudo mkdir -p /volume1/docker/cursor-automation
 cd /volume1/docker/cursor-automation
 ```
 
-**Si `git` est installé (paquet Synology Git Server) :**
+**Si `git` est installÃ© (paquet Synology Git Server) :**
 
 ```bash
 git clone https://github.com/chapiber/CursorAutomation.git .
@@ -57,13 +57,13 @@ nano .env
 
 Renseigner obligatoirement :
 
-- `CURSOR_API_KEY` — clé API Cursor (**optionnel** si seul le job `cdm2026-daily` est utilisé)
-- `RUNNER_API_KEY` — générer : `openssl rand -hex 32`
-- `N8N_ENCRYPTION_KEY` — générer : `openssl rand -hex 32`
+- `CURSOR_API_KEY` â€” clÃ© API Cursor (**optionnel** si seul le job `cdm2026-daily` est utilisÃ©)
+- `RUNNER_API_KEY` â€” gÃ©nÃ©rer : `openssl rand -hex 32`
+- `N8N_ENCRYPTION_KEY` â€” gÃ©nÃ©rer : `openssl rand -hex 32`
 
-### 3. Clé SSH GitHub (recommandé — pull + push CDM)
+### 3. ClÃ© SSH GitHub (recommandÃ© â€” pull + push CDM)
 
-Le job `cdm2026-daily` utilise `handler: cdm_update` : le runner fait **git pull**, met à jour `cdm2026.json`, puis **commit + push** sur `chapiber/MyDiveClub`.
+Le job `cdm2026-daily` utilise `handler: cdm_update` : le runner fait **git pull**, met Ã  jour `cdm2026.json`, puis **commit + push** sur `chapiber/MyDiveClub`.
 
 ```bash
 mkdir -p secrets
@@ -72,11 +72,11 @@ ssh-keygen -t ed25519 -f secrets/id_ed25519 -N ""
 chmod 600 secrets/id_ed25519
 ```
 
-> **Important** : une clé **read-only** suffit pour l'ancien flux agent ; la MAJ programmatique exige **write** sur ce dépôt. Utiliser une deploy key dédiée (pas votre clé personnelle).
+> **Important** : une clÃ© **read-only** suffit pour l'ancien flux agent ; la MAJ programmatique exige **write** sur ce dÃ©pÃ´t. Utiliser une deploy key dÃ©diÃ©e (pas votre clÃ© personnelle).
 
-Repo public : le clone HTTPS fonctionne ; le **push** nécessite tout de même une authentification SSH ou un token.
+Repo public : le clone HTTPS fonctionne ; le **push** nÃ©cessite tout de mÃªme une authentification SSH ou un token.
 
-### 4. Démarrer la stack
+### 4. DÃ©marrer la stack
 
 ```bash
 docker compose build
@@ -86,43 +86,43 @@ docker compose ps
 
 ### 5. Importer le workflow n8n
 
-**Automatique (recommandé) :**
+**Automatique (recommandÃ©) :**
 
 ```bash
 bash scripts/import-n8n-workflow.sh
 ```
 
-Le script copie `n8n/workflows/cdm2026-daily.json` dans le conteneur, l'importe via `n8n import:workflow`, puis **unpublish → publish** (`CdM2026DailyWf01`) pour réenregistrer le cron 7h sans redémarrer n8n.
+Le script copie `n8n/workflows/cdm2026-daily.json` dans le conteneur, l'importe via `n8n import:workflow`, puis **unpublish â†’ publish** (`CdM2026DailyWf01`) pour rÃ©enregistrer le cron 7h sans redÃ©marrer n8n.
 
-> **Important** : ne pas stopper/redémarrer n8n manuellement après import — cela désynchronise le schedule trigger. En cas de doute, relancer `bash scripts/import-n8n-workflow.sh`.
+> **Important** : ne pas stopper/redÃ©marrer n8n manuellement aprÃ¨s import â€” cela dÃ©synchronise le schedule trigger. En cas de doute, relancer `bash scripts/import-n8n-workflow.sh`.
 
 **Manuel (UI) :**
 
 1. Ouvrir `http://<IP-NAS>:5678`
-2. Créer un compte admin n8n (première visite)
-3. **Workflows** → **Import from File** → `n8n/workflows/cdm2026-daily.json`
-4. Vérifier que la variable d'environnement `RUNNER_API_KEY` est bien passée au conteneur n8n (déjà dans `docker-compose.yml`)
-5. **Activer** le workflow (toggle en haut à droite)
+2. CrÃ©er un compte admin n8n (premiÃ¨re visite)
+3. **Workflows** â†’ **Import from File** â†’ `n8n/workflows/cdm2026-daily.json`
+4. VÃ©rifier que la variable d'environnement `RUNNER_API_KEY` est bien passÃ©e au conteneur n8n (dÃ©jÃ  dans `docker-compose.yml`)
+5. **Activer** le workflow (toggle en haut Ã  droite)
 
-**Après mise à jour du workflow** (date de fin, CR texte) : réimporter `n8n/workflows/cdm2026-daily.json` (remplace l'existant) ou recréer les nœuds manuellement.
+**AprÃ¨s mise Ã  jour du workflow** (date de fin, CR texte) : rÃ©importer `n8n/workflows/cdm2026-daily.json` (remplace l'existant) ou recrÃ©er les nÅ“uds manuellement.
 
 ### Date de fin du job CDM
 
-- Dernière exécution planifiée : **14/07/2026 à 7h** (Europe/Paris)
-- À partir du **15/07/2026** : le nœud n8n **Encore actif ?** route vers **Expiré** (CR texte sans appel agent)
-- Garde-fou API : `stop_after: "2026-07-14"` dans `config/jobs.json` → `POST /api/v1/runs` retourne **410** si date dépassée
+- DerniÃ¨re exÃ©cution planifiÃ©e : **14/07/2026 Ã  7h** (Europe/Paris)
+- Ã€ partir du **15/07/2026** : le nÅ“ud n8n **Encore actif ?** route vers **ExpirÃ©** (CR texte sans appel agent)
+- Garde-fou API : `stop_after: "2026-07-14"` dans `config/jobs.json` â†’ `POST /api/v1/runs` retourne **410** si date dÃ©passÃ©e
 
 ### Compte-rendu e-mail (Gmail OAuth n8n)
 
-Chaque exécution envoie un e-mail à **chapron.loic@gmail.com** via le nœud **Gmail** (OAuth2). **Ne pas utiliser SMTP + mot de passe d'application** : sur n8n 2.21+ (NAS en 2.23), la validation SMTP Gmail échoue souvent (`Connection closed unexpectedly`) même avec un App Password valide.
+Chaque exÃ©cution envoie un e-mail Ã  **chapron.loic@gmail.com** via le nÅ“ud **Gmail** (OAuth2). **Ne pas utiliser SMTP + mot de passe d'application** : sur n8n 2.21+ (NAS en 2.23), la validation SMTP Gmail Ã©choue souvent (`Connection closed unexpectedly`) mÃªme avec un App Password valide.
 
 #### 1. Google Cloud (une fois)
 
-1. [Google Cloud Console](https://console.cloud.google.com/) → projet (ou en créer un)
-2. **APIs & Services** → **Library** → activer **Gmail API**
-3. **OAuth consent screen** → type **External** → ajouter ton e-mail en testeur
-4. **Credentials** → **Create credentials** → **OAuth client ID** → type **Web application**
-5. **Authorized redirect URIs** (doit correspondre **exactement** à l’URL affichée dans n8n) :
+1. [Google Cloud Console](https://console.cloud.google.com/) â†’ projet (ou en crÃ©er un)
+2. **APIs & Services** â†’ **Library** â†’ activer **Gmail API**
+3. **OAuth consent screen** â†’ type **External** â†’ ajouter ton e-mail en testeur
+4. **Credentials** â†’ **Create credentials** â†’ **OAuth client ID** â†’ type **Web application**
+5. **Authorized redirect URIs** (doit correspondre **exactement** Ã  lâ€™URL affichÃ©e dans n8n) :
 
 ```text
 http://localhost:5678/rest/oauth2-credential/callback
@@ -138,24 +138,24 @@ Sur ton PC :
 ssh -p 1982 -L 5678:127.0.0.1:5678 chapron@192.168.1.28
 ```
 
-Ouvre **http://localhost:5678** (pas l’IP du NAS) pour créer le credential.
+Ouvre **http://localhost:5678** (pas lâ€™IP du NAS) pour crÃ©er le credential.
 
 #### 2c. Credential n8n
 
-1. `http://localhost:5678` → **Credentials** → **Gmail OAuth2**
+1. `http://localhost:5678` â†’ **Credentials** â†’ **Gmail OAuth2**
 2. Nom : **`CDM Gmail OAuth`** (exact)
-3. Vérifier que **OAuth Redirect URL** = `http://localhost:5678/rest/oauth2-credential/callback`
+3. VÃ©rifier que **OAuth Redirect URL** = `http://localhost:5678/rest/oauth2-credential/callback`
 4. Coller Client ID + Client Secret
-5. **Sign in with Google** → autoriser `chapron.loic@gmail.com`
-6. Workflow **CDM 2026 — MAJ quotidienne** → nœud **Envoyer CR par mail** → **CDM Gmail OAuth**
+5. **Sign in with Google** â†’ autoriser `chapron.loic@gmail.com`
+6. Workflow **CDM 2026 â€” MAJ quotidienne** â†’ nÅ“ud **Envoyer CR par mail** â†’ **CDM Gmail OAuth**
 
-> **Audience** Google Cloud : ajouter `chapron.loic@gmail.com` en **utilisateur test** tant que l’app est en mode « Test ».
+> **Audience** Google Cloud : ajouter `chapron.loic@gmail.com` en **utilisateur test** tant que lâ€™app est en mode Â« Test Â».
 
 #### 3. Test
 
-Exécuter le workflow manuellement (branche **Expiré** = rapide) → vérifier la réception du mail.
+ExÃ©cuter le workflow manuellement (branche **ExpirÃ©** = rapide) â†’ vÃ©rifier la rÃ©ception du mail.
 
-> Sauvegarder `N8N_ENCRYPTION_KEY` : sans elle, les tokens OAuth n8n ne sont plus déchiffrables après restauration.
+> Sauvegarder `N8N_ENCRYPTION_KEY` : sans elle, les tokens OAuth n8n ne sont plus dÃ©chiffrables aprÃ¨s restauration.
 
 Consultation du CR sans relancer :
 
@@ -167,15 +167,15 @@ curl -s "http://localhost:8765/api/v1/runs/latest?job_id=cdm2026-daily" \
 Format minimaliste (MAJ programmatique `cdm_update`) :
 
 ```text
-CDM 2026 — compte-rendu
-Durée MAJ : 45 s
-Matchs mis à jour : 2
-Fichiers commités : 1
+CDM 2026 â€” compte-rendu
+DurÃ©e MAJ : 45 s
+Matchs mis Ã  jour : 2
+Fichiers commitÃ©s : 1
 Commit : abc1234
-Durée totale (pull + deploy) : 72 s
+DurÃ©e totale (pull + deploy) : 72 s
 ```
 
-> Ancien flux agent (si `handler: agent`) : lignes « Durée agent » et « Tokens » à la place de « Durée MAJ ».
+> Ancien flux agent (si `handler: agent`) : lignes Â« DurÃ©e agent Â» et Â« Tokens Â» Ã  la place de Â« DurÃ©e MAJ Â».
 
 ### Flux CDM programmatique (sans IA)
 
@@ -187,20 +187,20 @@ Le job `cdm2026-daily` (`config/jobs.json`) utilise `handler: cdm_update` :
 4. `git commit` + `push` si diff
 5. Deploy `portailClub.sh`
 
-**Durée typique :** 30 s – 2 min. **Pas de `CURSOR_API_KEY`** requis.
+**DurÃ©e typique :** 30 s â€“ 2 min. **Pas de `CURSOR_API_KEY`** requis.
 
-Phases polling n8n : `git_pull` → `fetch` → `merge` → `standings` → `git_push` → `deploy` → `done`
+Phases polling n8n : `git_pull` â†’ `fetch` â†’ `merge` â†’ `standings` â†’ `git_push` â†’ `deploy` â†’ `done`
 
-Logs `[CDM_PROGRESS]` dans `GET /api/v1/runs/{id}` ; `[CDM_STATS]` dans `agent_summary` pour compatibilité parsing.
+Logs `[CDM_PROGRESS]` dans `GET /api/v1/runs/{id}` ; `[CDM_STATS]` dans `agent_summary` pour compatibilitÃ© parsing.
 
-### 6. Vérifier la santé
+### 6. VÃ©rifier la santÃ©
 
 ```bash
 curl -s http://localhost:8765/health
 # {"status":"ok","service":"skills-runner"}
 ```
 
-## Accès externe HTTPS (`diveapps.serveblog.net/n8n`)
+## AccÃ¨s externe HTTPS (`diveapps.serveblog.net/n8n`)
 
 URL publique cible :
 
@@ -208,38 +208,38 @@ URL publique cible :
 https://diveapps.serveblog.net/n8n/
 ```
 
-### Prérequis
+### PrÃ©requis
 
-1. Compte **owner** n8n déjà créé en local (`http://192.168.1.28:5678` ou tunnel SSH) — **avant** d’ouvrir l’accès Internet
-2. Reverse proxy DSM configuré (voir ci-dessous)
-3. Variables `.env` alignées sur l’URL publique (voir `.env.example`)
+1. Compte **owner** n8n dÃ©jÃ  crÃ©Ã© en local (`http://192.168.1.28:5678` ou tunnel SSH) â€” **avant** dâ€™ouvrir lâ€™accÃ¨s Internet
+2. Reverse proxy DSM configurÃ© (voir ci-dessous)
+3. Variables `.env` alignÃ©es sur lâ€™URL publique (voir `.env.example`)
 
 ### 1. Reverse proxy nginx (`/n8n` sur `diveapps.serveblog.net`)
 
-Le reverse proxy DSM route déjà `diveapps.serveblog.net:443` → Web Station (`localhost:80`). L’UI DSM **ne gère pas** les sous-chemins sur un hôte existant — le chemin `/n8n` est ajouté via nginx :
+Le reverse proxy DSM route dÃ©jÃ  `diveapps.serveblog.net:443` â†’ Web Station (`localhost:80`). Lâ€™UI DSM **ne gÃ¨re pas** les sous-chemins sur un hÃ´te existant â€” le chemin `/n8n` est ajoutÃ© via nginx :
 
 ```bash
 cd /volume1/docker/cursor-automation
 bash scripts/setup-n8n-reverse-proxy.sh
 ```
 
-Ce script insère `location /n8n/` → `http://127.0.0.1:5678` (WebSocket inclus) dans la config reverse proxy existante. À relancer si DSM régénère `server.ReverseProxy.conf`.
+Ce script insÃ¨re `location /n8n/` â†’ `http://127.0.0.1:5678` (WebSocket inclus) dans la config reverse proxy existante. Ã€ relancer si DSM rÃ©gÃ©nÃ¨re `server.ReverseProxy.conf`.
 
-Les ports Docker n8n et runner sont liés à `127.0.0.1` uniquement — pas d’accès direct via `<IP-NAS>:5678`.
+Les ports Docker n8n et runner sont liÃ©s Ã  `127.0.0.1` uniquement â€” pas dâ€™accÃ¨s direct via `<IP-NAS>:5678`.
 
 ### 2. Variables `.env` + auth nginx
 
 ```bash
 bash scripts/apply-n8n-public-env.sh   # .env HTTPS + secrets/n8n.htpasswd
-bash scripts/setup-n8n-reverse-proxy.sh   # sudo — route /n8n + popup login nginx
+bash scripts/setup-n8n-reverse-proxy.sh   # sudo â€” route /n8n + popup login nginx
 docker compose up -d n8n
 ```
 
 **Authentification (double verrou) :**
-1. **Popup nginx** — identifiants dans `secrets/n8n-gateway.env` (générés par `apply-n8n-public-env.sh`)
-2. **Login owner n8n** — e-mail + mot de passe créés à l’installation
+1. **Popup nginx** â€” identifiants dans `secrets/n8n-gateway.env` (gÃ©nÃ©rÃ©s par `apply-n8n-public-env.sh`)
+2. **Login owner n8n** â€” e-mail + mot de passe crÃ©Ã©s Ã  lâ€™installation
 
-> n8n 2.23 ignore `N8N_BASIC_AUTH_*` ; l’auth « porte d’entrée » est faite par **nginx** (`auth_basic`).
+> n8n 2.23 ignore `N8N_BASIC_AUTH_*` ; lâ€™auth Â« porte dâ€™entrÃ©e Â» est faite par **nginx** (`auth_basic`).
 
 Ou manuellement dans `.env` :
 
@@ -252,14 +252,14 @@ WEBHOOK_URL=https://diveapps.serveblog.net/n8n/
 
 ### 3. Authentification obligatoire
 
-À l’arrivée sur `https://diveapps.serveblog.net/n8n/` :
+Ã€ lâ€™arrivÃ©e sur `https://diveapps.serveblog.net/n8n/` :
 
-1. **Popup nginx** — `secrets/n8n-gateway.env` (`N8N_GATEWAY_USER` / `N8N_GATEWAY_PASSWORD`)
-2. **Login owner n8n** — e-mail + mot de passe créés à l’installation
+1. **Popup nginx** â€” `secrets/n8n-gateway.env` (`N8N_GATEWAY_USER` / `N8N_GATEWAY_PASSWORD`)
+2. **Login owner n8n** â€” e-mail + mot de passe crÃ©Ã©s Ã  lâ€™installation
 
-Sans identifiants → **401**, l’UI n8n n’est pas accessible.
+Sans identifiants â†’ **401**, lâ€™UI n8n nâ€™est pas accessible.
 
-Les webhooks restent sur des URLs dédiées (sans Basic Auth) :
+Les webhooks restent sur des URLs dÃ©diÃ©es (sans Basic Auth) :
 
 ```text
 https://diveapps.serveblog.net/n8n/webhook/<uuid>
@@ -273,9 +273,9 @@ Ajouter dans Google Cloud Console :
 https://diveapps.serveblog.net/n8n/rest/oauth2-credential/callback
 ```
 
-Reconnecter le credential **CDM Gmail OAuth** dans n8n après bascule HTTPS.
+Reconnecter le credential **CDM Gmail OAuth** dans n8n aprÃ¨s bascule HTTPS.
 
-### 5. Tests sécurité (depuis 4G ou hors LAN)
+### 5. Tests sÃ©curitÃ© (depuis 4G ou hors LAN)
 
 ```bash
 # Doit retourner 401 sans identifiants
@@ -302,15 +302,15 @@ Tunnel SSH puis `docker compose up -d n8n`.
 
 ## Volumes importants
 
-| Volume hôte | Montage conteneur | Rôle |
+| Volume hÃ´te | Montage conteneur | RÃ´le |
 |-------------|-------------------|------|
 | `./config` | `/config` | jobs.json + prompts |
 | `./workspaces` | `/workspaces` | clone MyDiveClub |
-| `/volume1/web/portailClub` | `/deploy/portailClub` | site déployé |
+| `/volume1/web/portailClub` | `/deploy/portailClub` | site dÃ©ployÃ© |
 | `./n8n_data` | persistance n8n | workflows, historique |
 | `./logs` | logs runner | diagnostics |
 
-## Mise à jour
+## Mise Ã  jour
 
 ```bash
 cd /volume1/docker/cursor-automation
@@ -320,29 +320,28 @@ docker compose up -d
 bash scripts/import-n8n-workflow.sh
 ```
 
-## Dépannage
+## DÃ©pannage
 
-| Symptôme | Action |
+| SymptÃ´me | Action |
 |----------|--------|
-| `access to env vars denied` | Ajouter `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` au conteneur n8n puis recréer |
+| `access to env vars denied` | Ajouter `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` au conteneur n8n puis recrÃ©er |
 | `401 X-API-Key invalide` | Aligner `RUNNER_API_KEY` dans `.env` et header n8n |
-| Agent cloud échoue | Jobs `handler: agent` uniquement — vérifier `CURSOR_API_KEY` |
-| `git push` échoué (CDM) | Deploy key **read/write** sur MyDiveClub ; voir section secrets |
-| Fetch web sans MAJ | Sources indisponibles ou HTML changé — run OK, `matches_updated: 0` |
-| `git pull` échoue | Deploy key ou repo public |
-| Deploy échoue | Vérifier permissions `/volume1/web/portailClub` |
+| Agent cloud Ã©choue | Jobs `handler: agent` uniquement â€” vÃ©rifier `CURSOR_API_KEY` |
+| `git push` Ã©chouÃ© (CDM) | Deploy key **read/write** sur MyDiveClub ; voir section secrets |
+| Fetch web sans MAJ | Sources indisponibles ou HTML changÃ© â€” run OK, `matches_updated: 0` |
+| `git pull` Ã©choue | Deploy key ou repo public |
+| Deploy Ã©choue | VÃ©rifier permissions `/volume1/web/portailClub` |
 | n8n EACCES sur volume | Utiliser bind mount `./n8n_data:/data` + `chmod 777 n8n_data` + `N8N_USER_FOLDER=/data` |
-| `500 Internal Server Error` | Souvent `git clone` échoué (dossier `/workspaces/MyDiveClub` sans `.git`) — corrigé par réinit workspace ; vérifier `docker logs cursor-skills-runner` |
-| `git clone` exit 128 | Dossier cible déjà présent — le runner supprime et reclone automatiquement (v0.2+) |
+| `500 Internal Server Error` | Souvent `git clone` Ã©chouÃ© (dossier `/workspaces/MyDiveClub` sans `.git`) â€” corrigÃ© par rÃ©init workspace ; vÃ©rifier `docker logs cursor-skills-runner` |
+| `git clone` exit 128 | Dossier cible dÃ©jÃ  prÃ©sent â€” le runner supprime et reclone automatiquement (v0.2+) |
 | Suivi run en cours | `GET /api/v1/runs/{run_id}` ou `logs/runs/{run_id}.json` sur NAS |
-| Timeout n8n | Boucle polling 30s × ~40 = 20 min max ; MAJ programmatique ~1–2 min |
-| Pas de run 7h après import / restart | `staticData` schedule vide — relancer `bash scripts/import-n8n-workflow.sh` (unpublish → publish) |
-| Manuel → branche **Expiré** avant le 14/07 | Expression date du nœud **Encore actif ?** non évaluée — réimporter le workflow corrigé |
-| `410 job expiré` | Normal après le 14/07/2026 — vérifier `stop_after` dans jobs.json |
-| `report_text` vide / n/d | Vérifier `result.cdm.stats` ou `agent.stats.matches_updated` dans le JSON run |
-| E-mail non reçu | Credential **CDM Gmail OAuth** connecté ? Gmail API activée ? Redirect URI HTTPS ou `localhost` selon mode |
-| `401` sur `/n8n/` sans login | Normal — activer Basic Auth + owner n8n ; webhooks `/webhook/*` exemptés |
-| UI n8n cassée derrière proxy | Vérifier WebSocket DSM, `N8N_PATH=/n8n`, `N8N_EDITOR_BASE_URL` sans slash final |
+| Timeout n8n | Boucle polling 30s Ã— ~40 = 20 min max ; MAJ programmatique ~1â€“2 min |
+| Pas de run 7h aprÃ¨s import / restart | `staticData` schedule vide â€” relancer `bash scripts/import-n8n-workflow.sh` (unpublish â†’ publish) |
+| Manuel â†’ branche **ExpirÃ©** avant le 14/07 | Expression date du nÅ“ud **Encore actif ?** non Ã©valuÃ©e â€” rÃ©importer le workflow corrigÃ© |
+| `410 job expirÃ©` | Normal aprÃ¨s le 14/07/2026 â€” vÃ©rifier `stop_after` dans jobs.json |
+| `report_text` vide / n/d | VÃ©rifier `result.cdm.stats` ou `agent.stats.matches_updated` dans le JSON run |
+| E-mail non reÃ§u | Credential **CDM Gmail OAuth** connectÃ© ? Redirect URI HTTPS ou `localhost` selon mode |
+| UI n8n cassÃ©e derriÃ¨re proxy | WebSocket DSM activÃ© ? `N8N_EDITOR_BASE_URL` = URL publique exacte (port inclus) |
 
 Logs :
 
