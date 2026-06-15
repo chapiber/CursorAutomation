@@ -18,7 +18,7 @@ services:
       - ./secrets:/secrets:ro
       - /volume1/web/portailClub:/deploy/portailClub
     ports:
-      - "${RUNNER_HOST_PORT:-8765}:8080"
+      - "127.0.0.1:${RUNNER_HOST_PORT:-8765}:8080"
     networks:
       - cursor-auto-net
     healthcheck:
@@ -37,10 +37,14 @@ services:
       TZ: ${TZ:-Europe/Paris}
       N8N_HOST: 0.0.0.0
       N8N_PORT: 5678
-      N8N_PROTOCOL: http
-      # URL publique pour OAuth Gmail (ne pas utiliser 0.0.0.0 — Google le refuse)
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      N8N_PATH: ${N8N_PATH:-}
       N8N_EDITOR_BASE_URL: ${N8N_EDITOR_BASE_URL:-http://localhost:5678}
-      N8N_SECURE_COOKIE: "false"
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
+      N8N_SECURE_COOKIE: ${N8N_SECURE_COOKIE:-false}
+      N8N_BASIC_AUTH_ACTIVE: ${N8N_BASIC_AUTH_ACTIVE:-false}
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER:-}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD:-}
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       GENERIC_TIMEZONE: Europe/Paris
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
@@ -49,7 +53,7 @@ services:
     volumes:
       - ./n8n_data:/data
     ports:
-      - "${N8N_HOST_PORT:-5678}:5678"
+      - "127.0.0.1:${N8N_HOST_PORT:-5678}:5678"
     networks:
       - cursor-auto-net
     depends_on:

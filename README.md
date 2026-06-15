@@ -1,15 +1,15 @@
 # CursorAutomation
 
-Orchestrateur NAS : **n8n** planifie des jobs, **skills-runner** invoque des skills Cursor (SDK cloud) sur des repos GitHub, puis déploie vers le web Synology.
+Orchestrateur NAS : **n8n** planifie des jobs, **skills-runner** invoque des skills Cursor (SDK cloud) sur des repos GitHub, puis dÃ©ploie vers le web Synology.
 
 ## POC : CDM 2026
 
-Workflow quotidien à **7h00 (Europe/Paris)** :
-1. Agent cloud exécute `@cdm2026-update` sur `chapiber/MyDiveClub`
+Workflow quotidien Ã  **7h00 (Europe/Paris)** :
+1. Agent cloud exÃ©cute `@cdm2026-update` sur `chapiber/MyDiveClub`
 2. Commit + push GitHub
 3. `git pull` local + deploy vers `/volume1/web/portailClub`
 
-## Démarrage rapide (NAS)
+## DÃ©marrage rapide (NAS)
 
 ```bash
 cd /volume1/docker/cursor-automation
@@ -21,10 +21,10 @@ Voir [docs/DEPLOY-NAS.md](docs/DEPLOY-NAS.md) et [docs/TEST-POC.md](docs/TEST-PO
 
 ## Stack
 
-| Service | Rôle |
+| Service | RÃ´le |
 |---------|------|
 | `skills-runner` | API FastAPI + Cursor SDK cloud + deploy |
-| `n8n` | Scheduler + workflows |
+| `n8n` | Scheduler + workflows (UI : `https://diveapps.serveblog.net/n8n/` en prod) |
 
 ## API runner
 
@@ -37,4 +37,4 @@ curl -X POST http://localhost:8765/api/v1/run \
 
 ## Ajouter un job
 
-Éditer `config/jobs.json` et `config/prompts/<skill>.txt`, puis créer un workflow n8n.
+Ã‰diter `config/jobs.json` et `config/prompts/<skill>.txt`, puis crÃ©er un workflow n8n.

@@ -180,6 +180,108 @@ curl -s http://localhost:8765/health
 # {"status":"ok","service":"skills-runner"}
 ```
 
+## Accès externe HTTPS (`diveapps.serveblog.net/n8n`)
+
+URL publique cible :
+
+```text
+https://diveapps.serveblog.net/n8n/
+```
+
+### Prérequis
+
+1. Compte **owner** n8n déjà créé en local (`http://192.168.1.28:5678` ou tunnel SSH) — **avant** d’ouvrir l’accès Internet
+2. Reverse proxy DSM configuré (voir ci-dessous)
+3. Variables `.env` alignées sur l’URL publique (voir `.env.example`)
+
+### 1. Reverse proxy nginx (`/n8n` sur `diveapps.serveblog.net`)
+
+Le reverse proxy DSM route déjà `diveapps.serveblog.net:443` → Web Station (`localhost:80`). L’UI DSM **ne gère pas** les sous-chemins sur un hôte existant — le chemin `/n8n` est ajouté via nginx :
+
+```bash
+cd /volume1/docker/cursor-automation
+bash scripts/setup-n8n-reverse-proxy.sh
+```
+
+Ce script insère `location /n8n/` → `http://127.0.0.1:5678` (WebSocket inclus) dans la config reverse proxy existante. À relancer si DSM régénère `server.ReverseProxy.conf`.
+
+Les ports Docker n8n et runner sont liés à `127.0.0.1` uniquement — pas d’accès direct via `<IP-NAS>:5678`.
+
+### 2. Variables `.env` (production)
+
+```bash
+bash scripts/apply-n8n-public-env.sh
+```
+
+Ou manuellement :
+
+```env
+N8N_EDITOR_BASE_URL=https://diveapps.serveblog.net/n8n
+N8N_PATH=/n8n
+N8N_PROTOCOL=https
+N8N_SECURE_COOKIE=true
+WEBHOOK_URL=https://diveapps.serveblog.net/n8n/
+N8N_BASIC_AUTH_ACTIVE=true
+N8N_BASIC_AUTH_USER=<login>
+N8N_BASIC_AUTH_PASSWORD=<mot de passe fort>
+```
+
+Puis :
+
+```bash
+docker compose up -d n8n
+```
+
+### 3. Authentification obligatoire
+
+À l’arrivée sur `https://diveapps.serveblog.net/n8n/` :
+
+1. **Basic Auth** (popup navigateur) — `N8N_BASIC_AUTH_*` dans `.env`
+2. **Login owner n8n** — e-mail + mot de passe créés à l’installation
+
+Sans identifiants → **401**, l’UI n8n n’est pas accessible.
+
+Les webhooks restent sur des URLs dédiées (sans Basic Auth) :
+
+```text
+https://diveapps.serveblog.net/n8n/webhook/<uuid>
+```
+
+### 4. OAuth Gmail (URL publique)
+
+Ajouter dans Google Cloud Console :
+
+```text
+https://diveapps.serveblog.net/n8n/rest/oauth2-credential/callback
+```
+
+Reconnecter le credential **CDM Gmail OAuth** dans n8n après bascule HTTPS.
+
+### 5. Tests sécurité (depuis 4G ou hors LAN)
+
+```bash
+# Doit retourner 401 sans identifiants
+curl -sI https://diveapps.serveblog.net/n8n/
+
+# Avec Basic Auth : 200 ou redirection login n8n
+curl -sI -u "user:pass" https://diveapps.serveblog.net/n8n/
+```
+
+### 6. Retour en mode local (maintenance OAuth)
+
+Dans `.env` :
+
+```env
+N8N_EDITOR_BASE_URL=http://localhost:5678
+N8N_PATH=
+N8N_PROTOCOL=http
+N8N_SECURE_COOKIE=false
+WEBHOOK_URL=
+N8N_BASIC_AUTH_ACTIVE=false
+```
+
+Tunnel SSH puis `docker compose up -d n8n`.
+
 ## Volumes importants
 
 | Volume hôte | Montage conteneur | Rôle |
@@ -218,7 +320,9 @@ bash scripts/import-n8n-workflow.sh
 | Manuel → branche **Expiré** avant le 14/07 | Expression date du nœud **Encore actif ?** non évaluée — réimporter le workflow corrigé |
 | `410 job expiré` | Normal après le 14/07/2026 — vérifier `stop_after` dans jobs.json |
 | `report_text` vide / n/d | Agent n'a pas émis `[CDM_STATS]` ou tokens non exposés par le SDK |
-| E-mail non reçu | Credential **CDM Gmail OAuth** connecté ? Gmail API activée ? Redirect URI `http://<NAS>:5678/rest/oauth2-credential/callback` ? |
+| E-mail non reçu | Credential **CDM Gmail OAuth** connecté ? Gmail API activée ? Redirect URI HTTPS ou `localhost` selon mode |
+| `401` sur `/n8n/` sans login | Normal — activer Basic Auth + owner n8n ; webhooks `/webhook/*` exemptés |
+| UI n8n cassée derrière proxy | Vérifier WebSocket DSM, `N8N_PATH=/n8n`, `N8N_EDITOR_BASE_URL` sans slash final |
 
 Logs :
 
