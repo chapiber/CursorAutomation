@@ -400,22 +400,25 @@
     },
     {
       "parameters": {
-        "fromEmail": "chapron.loic@gmail.com",
-        "toEmail": "chapron.loic@gmail.com",
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "chapron.loic@gmail.com",
         "subject": "={{ '[CDM 2026] ' + ($json.status || 'info') + ' — ' + $now.setZone('Europe/Paris').toFormat('dd/MM/yyyy HH:mm') }}",
-        "emailFormat": "text",
-        "text": "={{ $json.cr || $json.report_text || JSON.stringify($json, null, 2) }}",
-        "options": {}
+        "emailType": "text",
+        "message": "={{ $json.cr || $json.report_text || JSON.stringify($json, null, 2) }}",
+        "options": {
+          "appendAttribution": false
+        }
       },
-      "id": "email-notify",
+      "id": "gmail-notify",
       "name": "Envoyer CR par mail",
-      "type": "n8n-nodes-base.emailSend",
+      "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
       "position": [2140, 300],
       "credentials": {
-        "smtp": {
-          "id": "CdMSmtpCred01",
-          "name": "CDM Gmail SMTP"
+        "gmailOAuth2": {
+          "id": "CdMGmailOauth01",
+          "name": "CDM Gmail OAuth"
         }
       }
     }
