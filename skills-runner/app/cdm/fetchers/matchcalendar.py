@@ -7,7 +7,7 @@ from typing import Callable
 from bs4 import BeautifulSoup
 
 from ..models import ExternalMatch
-from .base import parse_score_lines
+from .base import parse_name_ft_lines, parse_score_lines
 
 URL = "https://matchcalendar.football/"
 SOURCE = "matchcalendar.football"
@@ -17,7 +17,8 @@ def fetch(http_get: Callable[[str], str]) -> tuple[list[ExternalMatch], str]:
     html = http_get(URL)
     soup = BeautifulSoup(html, "lxml")
     text = soup.get_text("\n", strip=True)
-    matches = parse_score_lines(text, SOURCE)
+    matches = parse_name_ft_lines(text, SOURCE)
+    matches.extend(parse_score_lines(text, SOURCE))
     # Complément : balises data-* ou classes si présentes
     for node in soup.select("[data-home][data-away]"):
         home = node.get("data-home", "")

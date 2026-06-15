@@ -29,6 +29,8 @@ NAME_ALIASES: dict[str, str] = {
     "canada": "CAN",
     "bosnie-herzégovine": "BIH",
     "bosnie": "BIH",
+    "bosnia and herzegovina": "BIH",
+    "bosnia": "BIH",
     "suisse": "SUI",
     "switzerland": "SUI",
     "qatar": "QAT",
@@ -125,6 +127,13 @@ SCORE_LINE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# matchcalendar.football : « Group H · Spain vs Cape Verde · FT 0-0 »
+_MC_SEP = r"[·\u00B7\u2013\u2014\-–—]"
+NAME_FT_RE = re.compile(
+    rf"Group\s+[A-L]\s+{_MC_SEP}\s+(?P<home>.+?)\s+vs\s+(?P<away>.+?)\s+{_MC_SEP}\s*FT\s+(?P<hs>\d+)\s*-\s*(?P<aws>\d+)",
+    re.IGNORECASE,
+)
+
 LIVE_MARKERS = ("live", "en direct", "mi-temps", "half-time", "ht ", " 1ère mi", " 2ème mi")
 
 
@@ -146,6 +155,36 @@ def infer_status(text: str, *, has_score: bool) -> str:
     if has_score:
         return "finished"
     return "scheduled"
+
+
+def parse_name_ft_lines(text: str, source: str) -> list:
+    """Parse les lignes « Team vs Team – FT X-Y » (matchcalendar.football)."""
+    from ..models import ExternalMatch
+
+    results: list[ExternalMatch] = []
+    seen: set[tuple[str, str]] = set()
+    for match in NAME_FT_RE.finditer(text):
+        home = normalize_team_code(match.group("home").strip())
+        away = normalize_team_code(match.group("away").strip())
+        if not home or not away or home == away:
+            continue
+        key = (home, away)
+        if key in seen:
+            continue
+        seen.add(key)
+        hs = int(match.group("hs"))
+        aws = int(match.group("aws"))
+        results.append(
+            ExternalMatch(
+                home=home,
+                away=away,
+                home_score=hs,
+                away_score=aws,
+                status="finished",
+                source=source,
+            )
+        )
+    return results
 
 
 def parse_score_lines(text: str, source: str) -> list:
