@@ -35,9 +35,11 @@ services:
     env_file: .env
     environment:
       TZ: ${TZ:-Europe/Paris}
-      N8N_HOST: ${N8N_HOST:-0.0.0.0}
+      N8N_HOST: 0.0.0.0
       N8N_PORT: 5678
       N8N_PROTOCOL: http
+      # URL publique pour OAuth Gmail (ne pas utiliser 0.0.0.0 — Google le refuse)
+      N8N_EDITOR_BASE_URL: ${N8N_EDITOR_BASE_URL:-http://localhost:5678}
       N8N_SECURE_COOKIE: "false"
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       GENERIC_TIMEZONE: Europe/Paris

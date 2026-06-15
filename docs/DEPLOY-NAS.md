@@ -120,23 +120,34 @@ Chaque exécution envoie un e-mail à **chapron.loic@gmail.com** via le nœud **
 2. **APIs & Services** → **Library** → activer **Gmail API**
 3. **OAuth consent screen** → type **External** → ajouter ton e-mail en testeur
 4. **Credentials** → **Create credentials** → **OAuth client ID** → type **Web application**
-5. **Authorized redirect URIs** :
+5. **Authorized redirect URIs** (doit correspondre **exactement** à l’URL affichée dans n8n) :
 
 ```text
-http://192.168.1.28:5678/rest/oauth2-credential/callback
+http://localhost:5678/rest/oauth2-credential/callback
 ```
 
-(Adapter si tu accèdes à n8n via un autre host/port.)
+> Google **refuse** `192.168.x.x` et `0.0.0.0`. Si n8n affiche `http://0.0.0.0:5678/...`, ajouter `N8N_EDITOR_BASE_URL=http://localhost:5678` dans `.env` puis `docker compose up -d n8n`.
 
-6. Noter **Client ID** et **Client Secret**
+#### 2b. Tunnel SSH (obligatoire avec localhost)
 
-#### 2. Credential n8n (une fois)
+Sur ton PC :
 
-1. `http://<IP-NAS>:5678` → **Credentials** → **Add credential** → **Gmail OAuth2**
+```powershell
+ssh -p 1982 -L 5678:127.0.0.1:5678 chapron@192.168.1.28
+```
+
+Ouvre **http://localhost:5678** (pas l’IP du NAS) pour créer le credential.
+
+#### 2c. Credential n8n
+
+1. `http://localhost:5678` → **Credentials** → **Gmail OAuth2**
 2. Nom : **`CDM Gmail OAuth`** (exact)
-3. Coller Client ID + Client Secret
-4. **Sign in with Google** → autoriser le compte `chapron.loic@gmail.com`
-5. Workflow **CDM 2026 — MAJ quotidienne** → nœud **Envoyer CR par mail** → sélectionner **CDM Gmail OAuth**
+3. Vérifier que **OAuth Redirect URL** = `http://localhost:5678/rest/oauth2-credential/callback`
+4. Coller Client ID + Client Secret
+5. **Sign in with Google** → autoriser `chapron.loic@gmail.com`
+6. Workflow **CDM 2026 — MAJ quotidienne** → nœud **Envoyer CR par mail** → **CDM Gmail OAuth**
+
+> **Audience** Google Cloud : ajouter `chapron.loic@gmail.com` en **utilisateur test** tant que l’app est en mode « Test ».
 
 #### 3. Test
 
