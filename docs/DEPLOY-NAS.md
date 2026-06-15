@@ -7,8 +7,8 @@
 | Docker | Container Manager actif sur `NasChapron` |
 | Git | `git` disponible en SSH sur le NAS |
 | Repo GitHub | `chapiber/CursorAutomation` clonable |
-| Cursor API | Clé sur [Dashboard → Integrations](https://cursor.com/dashboard/integrations) |
-| GitHub ↔ Cursor | Repo `chapiber/MyDiveClub` connecté au compte Cursor (cloud agents) |
+| Cursor API | Clé sur [Dashboard → Integrations](https://cursor.com/dashboard/integrations) — **optionnelle pour CDM** (jobs `handler: agent` uniquement) |
+| GitHub ↔ Cursor | Repo `chapiber/MyDiveClub` connecté au compte Cursor — **plus requis pour CDM** (MAJ programmatique) |
 | Accès web | `/volume1/web/portailClub` accessible en écriture |
 
 ## Emplacement
@@ -57,22 +57,24 @@ nano .env
 
 Renseigner obligatoirement :
 
-- `CURSOR_API_KEY` — clé API Cursor
+- `CURSOR_API_KEY` — clé API Cursor (**optionnel** si seul le job `cdm2026-daily` est utilisé)
 - `RUNNER_API_KEY` — générer : `openssl rand -hex 32`
 - `N8N_ENCRYPTION_KEY` — générer : `openssl rand -hex 32`
 
-### 3. Clé SSH GitHub (optionnel, repo privé)
+### 3. Clé SSH GitHub (recommandé — pull + push CDM)
 
-Pour `git pull` après push de l'agent cloud :
+Le job `cdm2026-daily` utilise `handler: cdm_update` : le runner fait **git pull**, met à jour `cdm2026.json`, puis **commit + push** sur `chapiber/MyDiveClub`.
 
 ```bash
 mkdir -p secrets
 ssh-keygen -t ed25519 -f secrets/id_ed25519 -N ""
-# Ajouter secrets/id_ed25519.pub comme deploy key (read-only) sur chapiber/MyDiveClub
+# Ajouter secrets/id_ed25519.pub comme deploy key **read/write** sur chapiber/MyDiveClub uniquement
 chmod 600 secrets/id_ed25519
 ```
 
-Repo public : le clone/pull HTTPS fonctionne sans clé.
+> **Important** : une clé **read-only** suffit pour l'ancien flux agent ; la MAJ programmatique exige **write** sur ce dépôt. Utiliser une deploy key dédiée (pas votre clé personnelle).
+
+Repo public : le clone HTTPS fonctionne ; le **push** nécessite tout de même une authentification SSH ou un token.
 
 ### 4. Démarrer la stack
 
@@ -162,16 +164,34 @@ curl -s "http://localhost:8765/api/v1/runs/latest?job_id=cdm2026-daily" \
   -H "X-API-Key: $RUNNER_API_KEY" | python3 -c "import sys,json; print(json.load(sys.stdin)['report_text'])"
 ```
 
-Format minimaliste :
+Format minimaliste (MAJ programmatique `cdm_update`) :
 
 ```text
 CDM 2026 — compte-rendu
-Durée agent : 312 s
-Matchs mis à jour : 8
-Tokens : 45200 (in 38000 / out 7200)
+Durée MAJ : 45 s
+Matchs mis à jour : 2
 Fichiers commités : 1
 Commit : abc1234
+Durée totale (pull + deploy) : 72 s
 ```
+
+> Ancien flux agent (si `handler: agent`) : lignes « Durée agent » et « Tokens » à la place de « Durée MAJ ».
+
+### Flux CDM programmatique (sans IA)
+
+Le job `cdm2026-daily` (`config/jobs.json`) utilise `handler: cdm_update` :
+
+1. `git pull` MyDiveClub
+2. Fetch scores (matchcalendar.football, franceinfo, fifa.com)
+3. Merge + recalcul standings
+4. `git commit` + `push` si diff
+5. Deploy `portailClub.sh`
+
+**Durée typique :** 30 s – 2 min. **Pas de `CURSOR_API_KEY`** requis.
+
+Phases polling n8n : `git_pull` → `fetch` → `merge` → `standings` → `git_push` → `deploy` → `done`
+
+Logs `[CDM_PROGRESS]` dans `GET /api/v1/runs/{id}` ; `[CDM_STATS]` dans `agent_summary` pour compatibilité parsing.
 
 ### 6. Vérifier la santé
 
@@ -207,36 +227,34 @@ Ce script insère `location /n8n/` → `http://127.0.0.1:5678` (WebSocket inclus
 
 Les ports Docker n8n et runner sont liés à `127.0.0.1` uniquement — pas d’accès direct via `<IP-NAS>:5678`.
 
-### 2. Variables `.env` (production)
+### 2. Variables `.env` + auth nginx
 
 ```bash
-bash scripts/apply-n8n-public-env.sh
+bash scripts/apply-n8n-public-env.sh   # .env HTTPS + secrets/n8n.htpasswd
+bash scripts/setup-n8n-reverse-proxy.sh   # sudo — route /n8n + popup login nginx
+docker compose up -d n8n
 ```
 
-Ou manuellement :
+**Authentification (double verrou) :**
+1. **Popup nginx** — identifiants dans `secrets/n8n-gateway.env` (générés par `apply-n8n-public-env.sh`)
+2. **Login owner n8n** — e-mail + mot de passe créés à l’installation
+
+> n8n 2.23 ignore `N8N_BASIC_AUTH_*` ; l’auth « porte d’entrée » est faite par **nginx** (`auth_basic`).
+
+Ou manuellement dans `.env` :
 
 ```env
 N8N_EDITOR_BASE_URL=https://diveapps.serveblog.net/n8n
-N8N_PATH=/n8n
 N8N_PROTOCOL=https
 N8N_SECURE_COOKIE=true
 WEBHOOK_URL=https://diveapps.serveblog.net/n8n/
-N8N_BASIC_AUTH_ACTIVE=true
-N8N_BASIC_AUTH_USER=<login>
-N8N_BASIC_AUTH_PASSWORD=<mot de passe fort>
-```
-
-Puis :
-
-```bash
-docker compose up -d n8n
 ```
 
 ### 3. Authentification obligatoire
 
 À l’arrivée sur `https://diveapps.serveblog.net/n8n/` :
 
-1. **Basic Auth** (popup navigateur) — `N8N_BASIC_AUTH_*` dans `.env`
+1. **Popup nginx** — `secrets/n8n-gateway.env` (`N8N_GATEWAY_USER` / `N8N_GATEWAY_PASSWORD`)
 2. **Login owner n8n** — e-mail + mot de passe créés à l’installation
 
 Sans identifiants → **401**, l’UI n8n n’est pas accessible.
@@ -308,18 +326,20 @@ bash scripts/import-n8n-workflow.sh
 |----------|--------|
 | `access to env vars denied` | Ajouter `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` au conteneur n8n puis recréer |
 | `401 X-API-Key invalide` | Aligner `RUNNER_API_KEY` dans `.env` et header n8n |
-| Agent cloud échoue | Vérifier `CURSOR_API_KEY` et connexion GitHub Cursor |
+| Agent cloud échoue | Jobs `handler: agent` uniquement — vérifier `CURSOR_API_KEY` |
+| `git push` échoué (CDM) | Deploy key **read/write** sur MyDiveClub ; voir section secrets |
+| Fetch web sans MAJ | Sources indisponibles ou HTML changé — run OK, `matches_updated: 0` |
 | `git pull` échoue | Deploy key ou repo public |
 | Deploy échoue | Vérifier permissions `/volume1/web/portailClub` |
 | n8n EACCES sur volume | Utiliser bind mount `./n8n_data:/data` + `chmod 777 n8n_data` + `N8N_USER_FOLDER=/data` |
 | `500 Internal Server Error` | Souvent `git clone` échoué (dossier `/workspaces/MyDiveClub` sans `.git`) — corrigé par réinit workspace ; vérifier `docker logs cursor-skills-runner` |
 | `git clone` exit 128 | Dossier cible déjà présent — le runner supprime et reclone automatiquement (v0.2+) |
 | Suivi run en cours | `GET /api/v1/runs/{run_id}` ou `logs/runs/{run_id}.json` sur NAS |
-| Timeout n8n | Boucle polling 30s × ~40 = 20 min max ; agent cloud 5–20 min |
+| Timeout n8n | Boucle polling 30s × ~40 = 20 min max ; MAJ programmatique ~1–2 min |
 | Pas de run 7h après import / restart | `staticData` schedule vide — relancer `bash scripts/import-n8n-workflow.sh` (unpublish → publish) |
 | Manuel → branche **Expiré** avant le 14/07 | Expression date du nœud **Encore actif ?** non évaluée — réimporter le workflow corrigé |
 | `410 job expiré` | Normal après le 14/07/2026 — vérifier `stop_after` dans jobs.json |
-| `report_text` vide / n/d | Agent n'a pas émis `[CDM_STATS]` ou tokens non exposés par le SDK |
+| `report_text` vide / n/d | Vérifier `result.cdm.stats` ou `agent.stats.matches_updated` dans le JSON run |
 | E-mail non reçu | Credential **CDM Gmail OAuth** connecté ? Gmail API activée ? Redirect URI HTTPS ou `localhost` selon mode |
 | `401` sur `/n8n/` sans login | Normal — activer Basic Auth + owner n8n ; webhooks `/webhook/*` exemptés |
 | UI n8n cassée derrière proxy | Vérifier WebSocket DSM, `N8N_PATH=/n8n`, `N8N_EDITOR_BASE_URL` sans slash final |
