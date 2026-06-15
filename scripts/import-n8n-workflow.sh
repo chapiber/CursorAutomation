@@ -2,7 +2,7 @@
 # Importe (ou met à jour) le workflow CDM dans n8n via CLI Docker.
 # Usage : bash scripts/import-n8n-workflow.sh [--no-activate]
 #
-# Après import, unpublish → publish réenregistre le cron 7h (n8n 2.x).
+# Après import, unpublish → publish réenregistre le cron 2h (n8n 2.x).
 # Ne pas stopper le conteneur n8n : un simple restart casse le schedule trigger.
 set -euo pipefail
 
@@ -55,8 +55,11 @@ if (ifNode) {
   const c = ifNode.parameters?.conditions?.conditions?.[0];
   console.log('Condition:', c?.leftValue, c?.operator?.type, c?.operator?.operation);
 }
+const schedNode = x.nodes.find(n => n.type === 'n8n-nodes-base.scheduleTrigger');
+const cron = schedNode?.parameters?.rule?.interval?.[0]?.expression;
+console.log('Cron:', cron || 'absent');
 const mailNode = x.nodes.find(n => n.name === 'Envoyer CR par mail');
-console.log('Mail node:', mailNode ? mailNode.type : 'absent');
+console.log('Mail node:', mailNode ? mailNode.type : 'absent', 'disabled:', mailNode?.disabled === true);
 "
 
 echo "Import terminé."

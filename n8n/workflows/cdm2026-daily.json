@@ -1,6 +1,6 @@
 {
   "id": "CdM2026DailyWf01",
-  "name": "CDM 2026 — MAJ quotidienne",
+  "name": "CDM 2026 — MAJ toutes les 2h",
   "active": true,
   "activeVersionId": null,
   "nodes": [
@@ -10,13 +10,13 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "0 7 * * *"
+              "expression": "0 */2 * * *"
             }
           ]
         }
       },
       "id": "schedule-trigger",
-      "name": "Tous les jours 7h Paris",
+      "name": "Toutes les 2h Paris",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [240, 300]
@@ -415,6 +415,7 @@
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
       "position": [2140, 300],
+      "disabled": true,
       "credentials": {
         "gmailOAuth2": {
           "id": "GmailAccountCred",
@@ -424,7 +425,7 @@
     }
   ],
   "connections": {
-    "Tous les jours 7h Paris": {
+    "Toutes les 2h Paris": {
       "main": [
         [
           {
