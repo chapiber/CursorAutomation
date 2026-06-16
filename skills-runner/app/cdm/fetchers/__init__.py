@@ -9,7 +9,7 @@ import httpx
 
 from ..models import ExternalMatch
 from .base import merge_external_lists, parse_score_lines
-from . import franceinfo, fifa, matchcalendar
+from . import franceinfo, fifa, matchcalendar, openfootball
 
 logger = logging.getLogger("skills-runner.cdm")
 
@@ -32,7 +32,7 @@ def fetch_all() -> tuple[list[ExternalMatch], list[str], list[str]]:
     sources: list[str] = []
     batches: list[list[ExternalMatch]] = []
 
-    for fetcher in (matchcalendar.fetch, franceinfo.fetch, fifa.fetch):
+    for fetcher in (openfootball.fetch, matchcalendar.fetch, franceinfo.fetch, fifa.fetch):
         try:
             matches, source = fetcher(_http_get)
             if matches:

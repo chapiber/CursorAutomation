@@ -1,0 +1,36 @@
+{
+  "name": "World Cup 2026",
+  "matches": [
+    {
+      "round": "Matchday 1",
+      "date": "2026-06-11",
+      "team1": "Mexico",
+      "team2": "South Africa",
+      "score": { "ft": [2, 0] },
+      "group": "Group A"
+    },
+    {
+      "round": "Matchday 5",
+      "date": "2026-06-15",
+      "team1": "Belgium",
+      "team2": "Egypt",
+      "score": { "ft": [1, 1] },
+      "group": "Group G"
+    },
+    {
+      "round": "Matchday 3",
+      "date": "2026-06-13",
+      "team1": "Haiti",
+      "team2": "Scotland",
+      "score": { "ft": [0, 1] },
+      "group": "Group C"
+    },
+    {
+      "round": "Matchday 11",
+      "date": "2026-06-21",
+      "team1": "Belgium",
+      "team2": "Iran",
+      "group": "Group G"
+    }
+  ]
+}

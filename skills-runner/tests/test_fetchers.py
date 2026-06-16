@@ -1,9 +1,11 @@
 """Tests fetchers CDM (snapshots locaux)."""
 
+import json
 from pathlib import Path
 
 from app.cdm.fetchers import parse_html_snapshot
 from app.cdm.fetchers.base import normalize_team_code, parse_name_ft_lines, parse_score_lines
+from app.cdm.fetchers.openfootball import parse_openfootball_payload
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -38,3 +40,14 @@ def test_parse_score_lines_live_marker():
     matches = parse_score_lines(text, "test")
     assert len(matches) == 1
     assert matches[0].status == "live"
+
+
+def test_parse_openfootball_payload():
+    matches_data = json.loads((FIXTURES / "openfootball_sample.json").read_text(encoding="utf-8"))
+    teams_data = json.loads((FIXTURES / "openfootball_teams_sample.json").read_text(encoding="utf-8"))
+    matches = parse_openfootball_payload(matches_data, teams_data)
+    pairs = {(m.home, m.away, m.home_score, m.away_score, m.status) for m in matches}
+    assert ("MEX", "RSA", 2, 0, "finished") in pairs
+    assert ("BEL", "EGY", 1, 1, "finished") in pairs
+    assert ("HTI", "SCO", 0, 1, "finished") in pairs
+    assert not any(m.home == "BEL" and m.away == "IRN" for m in matches)

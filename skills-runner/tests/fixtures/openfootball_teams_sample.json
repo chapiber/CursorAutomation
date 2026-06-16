@@ -1,0 +1,9 @@
+[
+  { "name": "Mexico", "fifa_code": "MEX" },
+  { "name": "South Africa", "fifa_code": "RSA" },
+  { "name": "Belgium", "fifa_code": "BEL" },
+  { "name": "Egypt", "fifa_code": "EGY" },
+  { "name": "Haiti", "fifa_code": "HAI" },
+  { "name": "Scotland", "fifa_code": "SCO" },
+  { "name": "Iran", "name_normalised": "IR Iran", "fifa_code": "IRN" }
+]
