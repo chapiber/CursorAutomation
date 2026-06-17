@@ -163,6 +163,21 @@ def git_ssh_env() -> dict[str, str]:
     return env
 
 
+def ensure_git_identity(ws: Path, env: dict[str, str]) -> None:
+    """Identité git locale pour les commits automatisés (conteneur sans config globale)."""
+    name = os.environ.get("GIT_AUTHOR_NAME", "NAS CursorAutomation").strip()
+    email = os.environ.get("GIT_AUTHOR_EMAIL", "nas-cursor-automation@users.noreply.github.com").strip()
+    for key, val in [("user.name", name), ("user.email", email)]:
+        subprocess.run(
+            ["git", "config", key, val],
+            cwd=ws,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
+        )
+
+
 def git_commit_push(job: JobConfig, paths: list[str], message: str) -> dict[str, Any]:
     """Commit et push si diff ; retourne métadonnées git."""
     ws, clone_err = ensure_workspace_clone(job)
@@ -176,6 +191,7 @@ def git_commit_push(job: JobConfig, paths: list[str], message: str) -> dict[str,
         }
 
     env = git_ssh_env()
+    ensure_git_identity(ws, env)
     head_before = _git_rev_parse(ws)
 
     add_proc = subprocess.run(
