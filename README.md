@@ -5,9 +5,9 @@ Orchestrateur NAS : **n8n** planifie des jobs, **skills-runner** invoque des ski
 ## POC : CDM 2026
 
 Workflow quotidien Ã  **7h00 (Europe/Paris)** :
-1. Agent cloud exÃ©cute `@cdm2026-update` sur `chapiber/MyDiveClub`
+1. MAJ programmatique `cdm2026.json` sur `chapiber/cdm2026`
 2. Commit + push GitHub
-3. `git pull` local + deploy vers `/volume1/web/portailClub`
+3. Deploy vers `/volume1/web/portailClub/apps/cdm2026` + `api/cdm2026`
 
 ## DÃ©marrage rapide (NAS)
 

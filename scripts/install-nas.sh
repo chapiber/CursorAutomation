@@ -51,12 +51,20 @@ else
   echo "N8N_GID=$N8N_GID" >> .env
 fi
 
-if [[ ! -d "workspaces/MyDiveClub/.git" ]]; then
-  echo "[3/5] Clone initial MyDiveClub (pour git pull / deploy)"
-  git clone --branch main https://github.com/chapiber/MyDiveClub.git workspaces/MyDiveClub || \
-    echo "[WARN] Clone MyDiveClub échoué — sera retenté au premier run"
+if [[ ! -d "workspaces/cdm2026/.git" ]]; then
+  echo "[3/5] Clone initial cdm2026 (job cdm2026-daily)"
+  git clone --branch main https://github.com/chapiber/cdm2026.git workspaces/cdm2026 || \
+    echo "[WARN] Clone cdm2026 échoué — sera retenté au premier run"
 else
-  echo "[3/5] workspaces/MyDiveClub déjà présent"
+  echo "[3/5] workspaces/cdm2026 déjà présent"
+fi
+
+if [[ ! -d "workspaces/MyDiveClub/.git" ]]; then
+  echo "[3b/5] Clone initial MyDiveClub (portail club)"
+  git clone --branch main https://github.com/chapiber/MyDiveClub.git workspaces/MyDiveClub || \
+    echo "[WARN] Clone MyDiveClub échoué"
+else
+  echo "[3b/5] workspaces/MyDiveClub déjà présent"
 fi
 
 echo "[4/5] Build images Docker"

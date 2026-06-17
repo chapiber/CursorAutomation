@@ -4,7 +4,7 @@
 
 - Stack démarrée (`docker compose ps` → `healthy` / `running`)
 - `.env` renseigné avec `RUNNER_API_KEY` valide
-- Deploy key **read/write** sur `chapiber/MyDiveClub` montée dans `secrets/id_ed25519` (push CDM)
+- Deploy key **read/write** sur `chapiber/cdm2026` montée dans `secrets/id_ed25519` (push job CDM)
 - `CURSOR_API_KEY` **non requis** pour `cdm2026-daily` (MAJ programmatique)
 
 ## Test 1 — Santé de la stack
@@ -68,10 +68,10 @@ curl -s -X POST http://localhost:8765/api/v1/run \
 | Critère | Vérification |
 |---------|--------------|
 | Réponse API | `"status": "ok"` |
-| Commit GitHub | `gh api repos/chapiber/MyDiveClub/commits/main --jq .sha` ou page GitHub |
+| Commit GitHub | `gh api repos/chapiber/cdm2026/commits/main --jq .sha` ou page GitHub |
 | JSON CDM | `workspaces/cdm2026/site/public/data/cdm2026.json` → `meta.updatedAt` récent |
 | Site prod | https://diveapps.serveblog.net/portailClub/apps/cdm2026/ — scores / horaires à jour |
-| Deploy log | `workspaces/MyDiveClub/deploy_logs/deploy_portailClub_*.log` dernier fichier OK |
+| Deploy log | `workspaces/cdm2026/deploy_logs/deploy_cdm2026_*.log` dernier fichier OK |
 
 **Durée typique :** 30 s – 2 min (fetch web + merge + push + deploy).
 
@@ -155,7 +155,7 @@ pytest tests/ -q
 
 ```bash
 # Dernier log deploy
-ls -lt workspaces/MyDiveClub/deploy_logs/ | head -3
+ls -lt workspaces/cdm2026/deploy_logs/ | head -3
 
 # meta.updatedAt
 python3 -c "import json; d=json.load(open('workspaces/cdm2026/site/public/data/cdm2026.json')); print(d['meta']['updatedAt'])"

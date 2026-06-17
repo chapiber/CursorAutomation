@@ -181,7 +181,7 @@ DurÃ©e totale (pull + deploy) : 72 s
 
 Le job `cdm2026-daily` (`config/jobs.json`) utilise `handler: cdm_update` :
 
-1. `git pull` MyDiveClub
+1. `git pull` cdm2026
 2. Fetch scores (matchcalendar.football, franceinfo, fifa.com)
 3. Merge + recalcul standings
 4. `git commit` + `push` si diff
@@ -305,7 +305,7 @@ Tunnel SSH puis `docker compose up -d n8n`.
 | Volume hÃ´te | Montage conteneur | RÃ´le |
 |-------------|-------------------|------|
 | `./config` | `/config` | jobs.json + prompts |
-| `./workspaces` | `/workspaces` | clone MyDiveClub |
+| `./workspaces` | `/workspaces` | clone cdm2026 (+ MyDiveClub portail) |
 | `/volume1/web/portailClub` | `/deploy/portailClub` | site dÃ©ployÃ© |
 | `./n8n_data` | persistance n8n | workflows, historique |
 | `./logs` | logs runner | diagnostics |
@@ -327,7 +327,7 @@ bash scripts/import-n8n-workflow.sh
 | `access to env vars denied` | Ajouter `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` au conteneur n8n puis recrÃ©er |
 | `401 X-API-Key invalide` | Aligner `RUNNER_API_KEY` dans `.env` et header n8n |
 | Agent cloud Ã©choue | Jobs `handler: agent` uniquement â€” vÃ©rifier `CURSOR_API_KEY` |
-| `git push` Ã©chouÃ© (CDM) | Deploy key **read/write** sur MyDiveClub ; voir section secrets |
+| `git push` échoué (CDM) | Deploy key **read/write** sur `chapiber/cdm2026` ; clé publique = `secrets/id_ed25519.pub` (doit correspondre à la clé privée) |
 | Fetch web sans MAJ | Sources indisponibles ou HTML changÃ© â€” run OK, `matches_updated: 0` |
 | `git pull` Ã©choue | Deploy key ou repo public |
 | Deploy Ã©choue | VÃ©rifier permissions `/volume1/web/portailClub` |
