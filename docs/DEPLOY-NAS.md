@@ -63,7 +63,7 @@ Renseigner obligatoirement :
 
 ### 3. ClÃ© SSH GitHub (recommandÃ© â€” pull + push CDM)
 
-Le job `cdm2026-daily` utilise `handler: cdm_update` : le runner fait **git pull**, met Ã  jour `cdm2026.json`, puis **commit + push** sur `chapiber/MyDiveClub`.
+Le job `cdm2026-daily` utilise `handler: cdm_update` : le runner fait **git pull**, met Ã  jour `cdm2026.json`, puis **commit + push** sur `chapiber/cdm2026`.
 
 ```bash
 mkdir -p secrets
