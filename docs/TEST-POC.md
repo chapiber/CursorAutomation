@@ -69,7 +69,7 @@ curl -s -X POST http://localhost:8765/api/v1/run \
 |---------|--------------|
 | Réponse API | `"status": "ok"` |
 | Commit GitHub | `gh api repos/chapiber/MyDiveClub/commits/main --jq .sha` ou page GitHub |
-| JSON CDM | `workspaces/MyDiveClub/site/apps/cdm2026/data/cdm2026.json` → `meta.updatedAt` récent |
+| JSON CDM | `workspaces/cdm2026/site/public/data/cdm2026.json` → `meta.updatedAt` récent |
 | Site prod | https://diveapps.serveblog.net/portailClub/apps/cdm2026/ — scores / horaires à jour |
 | Deploy log | `workspaces/MyDiveClub/deploy_logs/deploy_portailClub_*.log` dernier fichier OK |
 
@@ -158,7 +158,7 @@ pytest tests/ -q
 ls -lt workspaces/MyDiveClub/deploy_logs/ | head -3
 
 # meta.updatedAt
-python3 -c "import json; d=json.load(open('workspaces/MyDiveClub/site/apps/cdm2026/data/cdm2026.json')); print(d['meta']['updatedAt'])"
+python3 -c "import json; d=json.load(open('workspaces/cdm2026/site/public/data/cdm2026.json')); print(d['meta']['updatedAt'])"
 
 # Relancer uniquement le runner
 docker compose restart skills-runner

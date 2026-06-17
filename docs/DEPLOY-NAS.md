@@ -68,7 +68,7 @@ Le job `cdm2026-daily` utilise `handler: cdm_update` : le runner fait **git pull
 ```bash
 mkdir -p secrets
 ssh-keygen -t ed25519 -f secrets/id_ed25519 -N ""
-# Ajouter secrets/id_ed25519.pub comme deploy key **read/write** sur chapiber/MyDiveClub uniquement
+# Ajouter secrets/id_ed25519.pub comme deploy key **read/write** sur chapiber/cdm2026
 chmod 600 secrets/id_ed25519
 ```
 

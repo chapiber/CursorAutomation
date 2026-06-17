@@ -25,6 +25,9 @@ mkdir -p "$LOG_DIR" "$DEST"
     --exclude '.git' \
     --exclude 'deploy_logs' \
     --exclude 'config.local.php' \
+    --exclude 'apps/cdm2026' \
+    --exclude 'api/cdm2026' \
+    --exclude 'lib/cdm2026.inc.php' \
     "$SOURCE/" "$DEST/"
 
   echo "[INFO] Generation version.json ($LOG_TS)..."
@@ -45,7 +48,6 @@ PY
   CACHE_FILES=(
     "$DEST/index.html"
     "$DEST/install.html"
-    "$DEST/apps/cdm2026/index.html"
     "$DEST/apps/formations/index.html"
     "$DEST/apps/materiel/index.html"
   )

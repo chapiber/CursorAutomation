@@ -1,12 +1,12 @@
 {
   "cdm2026-daily": {
     "handler": "cdm_update",
-    "repo": "chapiber/MyDiveClub",
-    "repo_url": "https://github.com/chapiber/MyDiveClub.git",
+    "repo": "chapiber/cdm2026",
+    "repo_url": "https://github.com/chapiber/cdm2026.git",
     "branch": "main",
-    "deploy": "portailClub",
-    "workspace_subdir": "MyDiveClub",
-    "data_file": "site/apps/cdm2026/data/cdm2026.json",
+    "deploy": "cdm2026",
+    "workspace_subdir": "cdm2026",
+    "data_file": "site/public/data/cdm2026.json",
     "stop_after": "2026-07-14"
   }
 }
